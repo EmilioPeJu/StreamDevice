@@ -1,0 +1,177 @@
+# example stream protocol file
+
+Terminator = CR LF;
+ReplyTimeout = 10000;
+ReadTimeout = 1000;
+myvar = blabla 1 2 3;
+
+ai { 
+#    out "%(NAME)s [int] ? ";
+#    in "%i";   # read to RVAL and convert
+    out "%(NAME)s [float] ? ";
+    in "%f";   # read to VAL and don't convert
+    @init {out '%(NAME)s = %f';}
+}
+
+set-ao {
+    out '%(NAME)s = %f [0x%04x]';
+    @init {ai;out "got %f";}
+}
+
+li { 
+    out "%(NAME)s [int] ? ";
+    in "%i";
+    @init {out '%(NAME)s = %i';}
+}
+
+lo { 
+    out '%(NAME)s = %i';
+    @init {lo;
+#        li;
+    }
+}
+
+bi { 
+    @init {out '%(NAME)s = %{false|true} = "%s"';}
+#    out "%(NAME)s [string] ? ";
+#    in "%s";
+    out "%(NAME)s [int] ? ";
+    in "%i";
+}
+
+bo { 
+    out '%(NAME)s = %{false|true} = "%s" [%i]';
+    @init {bo;
+        bi;
+    }
+}
+
+
+
+@init {}
+
+#@init {out 'init %(NAME)s "\$0"'}
+
+ao-with-egu {
+    out "%(DESC)s: %.3f %(EGU)s"; 
+}
+
+wait-and-write
+{
+  out "wait for \$1 seconds...";
+  wait $1000;
+  ao-with-egu;
+}
+
+countdown
+{
+    @init {}
+    R = "";
+#    R=CR "\e[K";
+#    outTerminator="";
+    out $R "10"; wait 1000;
+    out $R "9"; wait 1000;
+    out $R "8"; wait 1000;
+    out $R "7"; wait 1000;
+    out $R "6"; wait 1000;
+    out $R "5"; wait 1000;
+    out $R "4"; wait 1000;
+    out $R "3"; wait 1000;
+    out $R "2"; wait 1000;
+    out $R "1"; wait 1000;
+    out $R "%f";
+}
+
+printa { out $a };
+
+a = "xxx";
+
+b = $a;
+
+a = "yyy";
+
+t = 100;
+
+print {
+ out "a=\$a"; printa; out $b; out "%s"; }
+
+enums 
+{
+    @init { 
+        out "%(NAME)s ? ";
+        in "%d";
+    }
+    out "%{choice0|choice1|choice2} %d %s"; 
+}
+
+checksum {
+    out "%s%<sum> sum";
+    out "%s%<nsum> nsum";
+    out "%s%<xor> xor";
+    out "%s%<crc8> crc8";
+    out "%s%<ccitt8> ccitt8";
+    out "%s%<sum16> sum16"; 
+    out "%s%<crc16> crc16"; 
+    out "%s%<crc16r> crc16r";
+    out "%s%<ccitt16> ccitt16";
+    out "%s%<ccitt16a> ccitt16 with augment";
+    out "%s%<sum32> sum32";
+    out "%s%<crc32> crc32"; 
+    out "%s%<crc32r> crcr32";
+    out "%s%<jamcrc> jamcrc";
+    out "%s%<adler32> adler32";
+}
+
+variable = 18 20 2 0 7;
+v2=;
+
+Command {
+    out "%s";
+    out $variable;
+    out ${variable};
+    out "\$variable";
+    out "\${variable}";
+    out $V2;
+    out;
+}
+
+info {
+    out "%s";
+    in "%39c";
+}
+
+prompt {
+    @init {out "init %(NAME)s\n"}
+    replyTimeout = 10000;
+    OutTerminator = "";
+    out "WRITE [%s]> ";
+    in "%39c";
+}
+
+spy {
+    extraInput=ignore;
+    ReplyTimeout = 100;
+#    Terminator = "";
+    in "%39c";
+    wait 100;
+}
+
+log {
+    in "%39c"; extraInput=Ignore;
+}
+
+calcout {
+    out "%(A).4f, %(B).0f, %(C)d, /temp/X13/%(DESC)s.dat";
+}
+
+string_wave_out {
+    separator = ", ";
+    out "waveform %(NAME)s = (%s)";
+}
+
+char_wave_in {
+    outterminator = "";
+    out CR LF "Enter String: ";
+    in "%1000c";
+    out 'Got: "%s"' CR LF;
+}

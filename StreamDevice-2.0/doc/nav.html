@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<title>Navbar</title>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<meta name="author" content="Dirk Zimoch">
+<script type="text/javascript">
+<!--
+active="";
+function show(name) {
+    var m = document.getElementById(name);
+    var b = document.getElementById(name+"Button");
+    if (m.style.display == "none") {
+        if (active != "") { show(active); }
+        m.style.display = "block";
+        b.innerHTML="[&minus;]";
+        active=name;
+    } else {
+        m.style.display = "none";
+        b.innerHTML="[+]";
+        active="";
+    }
+}
+-->
+</script>
+<style type="text/css">
+<!--
+a:link    {color:#333333;text-decoration:none;}
+a:visited {color:#333333;text-decoration:none;}
+a:hover   {color:#FF0000;text-decoration:none;}
+a:active  {color:#FF0000;text-decoration:none;}
+.top      {margin-bottom: 10px;
+           border-bottom: solid 1px black;}
+.sub      {margin-left: 10px;
+           margin-top: 5px;
+           line-height:120%;}
+-->
+</style>
+
+</head>
+<body background="bg.gif"
+    style="margin:15px 0px 0px 0px;
+           font-family:sans-serif;
+           font-weight:bold;
+           font-size:small">
+<p align="center">
+<a href="http://www.aps.anl.gov/epics" target="ex"><img
+    src="EPICS.gif" border=0 width=50 height=50 alt="EPICS"></a>
+</p>
+<div style="margin-left: 20px; margin-top: 20px;">
+ <div class="top">
+  <a target="text" href="stream.html">Intro</a>
+ </div>
+ <div class="top">
+  <a target="text" href="setup.html">Setup</a>
+  <a href="javascript:show('setup')" id="setupButton"></a>
+  <div id="setup" class="sub">
+   <a target="text" href="setup.html#pre">Prerequisites</a><br>
+   <a target="text" href="setup.html#lib">Build Library</a><br>
+   <a target="text" href="setup.html#app">Build Application</a><br>
+   <a target="text" href="setup.html#sta">Startup Script</a><br>
+   <a target="text" href="setup.html#pro">Protocol File</a><br>
+   <a target="text" href="setup.html#rec">Records</a><br>
+  </div>
+ </div>
+ <div class="top">
+  <a target="text" href="protocol.html">Protocol Files</a>
+  <a href="javascript:show('protocol')" id="protocolButton"></a>
+  <div id="protocol" class="sub">
+   <a target="text" href="protocol.html#gen">General</a><br>
+   <a target="text" href="protocol.html#proto">Protocols</a><br>
+   <a target="text" href="protocol.html#cmd">Commands</a><br>
+   <a target="text" href="protocol.html#str">Strings</a><br>
+   <a target="text" href="protocol.html#var">Variables</a><br>
+   <a target="text" href="protocol.html#except">Exception Handlers</a><br>
+  </div>
+ </div>
+ <div class="top">
+  <a target="text" href="formats.html">Formats</a>
+  <a href="javascript:show('formats')" id="formatsButton"></a>
+  <div id="formats" class="sub">
+   <a target="text" href="formats.html#syntax">Syntax</a><br>
+   <a target="text" href="formats.html#types">Types &amp; Fields</a><br>
+   <a target="text" href="formats.html#stdd">%f %e %g</a><br>
+   <a target="text" href="formats.html#stdl">%i %d %u %o %x</a><br>
+   <a target="text" href="formats.html#stds">%s %c</a><br>
+   <a target="text" href="formats.html#cset">%[<em>charset</em>]</a><br>
+   <a target="text" href="formats.html#enum">%{<em>s0</em>|<em>s1</em>|...}</a><br>
+   <a target="text" href="formats.html#bin">%b %B</a><br>
+   <a target="text" href="formats.html#raw">%r</a><br>
+   <a target="text" href="formats.html#bcd">%D</a><br>
+   <a target="text" href="formats.html#chksum">%&lt;<em>checksum</em>&gt;</a><br>
+  </div>
+ </div>
+ <div class="top">
+  <a target="text" href="processing.html">Processing</a>
+  <a href="javascript:show('proc')" id="procButton"></a>
+  <div id="proc" class="sub">
+   <a target="text" href="processing.html#proc">Normal Processing</a><br>
+   <a target="text" href="processing.html#init">Initialization</a><br>
+   <a target="text" href="processing.html#iointr">I/O Intr</a><br>
+  </div>
+ </div>
+ <div class="top">
+  <a target="text" href="recordtypes.html">Record Types</a>
+  <a href="javascript:show('records')" id="recordsButton"></a>
+  <div id="records" class="sub">
+   <a target="text" href="ai.html">ai</a><br>
+   <a target="text" href="ao.html">ao</a><br>
+   <a target="text" href="bi.html">bi</a><br>
+   <a target="text" href="bo.html">bo</a><br>
+   <a target="text" href="mbbi.html">mbbi</a><br>
+   <a target="text" href="mbbo.html">mbbo</a><br>
+   <a target="text" href="mbbiDirect.html">mbbiDirect</a><br>
+   <a target="text" href="mbboDirect.html">mbboDirect</a><br>
+   <a target="text" href="stringin.html">stringin</a><br>
+   <a target="text" href="stringout.html">stringout</a><br>
+   <a target="text" href="longin.html">longin</a><br>
+   <a target="text" href="longout.html">longout</a><br>
+   <a target="text" href="waveform.html">waveform</a><br>
+   <a target="text" href="calcout.html">calcout</a><br>
+  </div>
+ </div>
+</div>
+<script type="text/javascript">
+<!--
+    show('setup');
+    show('protocol');
+    show('formats');
+    show('proc');
+    show('records');
+-->
+</script>
+</body>
+</html>
+

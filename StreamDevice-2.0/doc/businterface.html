@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<title>StreamDevice:Bus Interface API</title>
+<link rel="shortcut icon" href="sls_icon.ico">
+<link rel="stylesheet" type="text/css" href="stream.css">
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<meta name="author" content="Dirk Zimoch">
+</head>
+<body>
+<h1>Bus Interface API</h1>
+<p>
+A bus interface is a C++ class that inherits from
+<code>StreamBusInterface</code>
+(<code>#include &lt;StreamBusInterface.h&gt;</code>).
+Its purpose is to provide an interface to <em>StreamDevice</em> for a
+low-level I/O bus driver.
+<em>StreamDevice</em> acts as a client of the interface, calling interface
+methods and receiving replies via callbacks.
+</p>
+<p>
+Interface methods called by <em>StreamDevice</em> must not block.
+It is assumed that the interface creates a separate thread to handle
+blocking I/O and to call the callback methods in the context of that
+thread when I/O has completed.
+The callback methods don't block but may in turn call interface methods
+again.
+Much of the work of <em>StreamDevice</em> will be done in the context of
+those callbacks, i.e. in the interface thread, thus be generous with stack.
+</p>
+<p>
+The interface must implement the following methods:
+<code>getBusInterface()</code>,
+<code>lockRequest()</code>,
+<code>unlock()</code>,
+<code>writeRequest()</code>,
+<code>readRequest()</code>,
+<code>abort()</code>,
+<code>release()</code>.
+</p>
+<p>
+It may implement the methods if the bus supports events and asynchronous
+reads:
+<code>supportsAsyncRead()</code>,
+<code>supportsEvent()</code>,
+<code>acceptEvent()</code>.
+</p>
+<p>
+It also may override the virtual methods
+<code>setEos()</code> and
+<code>release()</code>.
+</p>
+<p>
+The interface class must be registered via
+<code>RegisterStreamBusInterface()</code>.
+</p>
+
+<h2>Example bus interface class declaration</h2>
+<pre>
+class MyInterface : StreamBusInterface
+{
+    // ... (internally used attributes an methods)
+
+    MyInterface(Client* client);
+    ~MyInterface();
+
+    // StreamBusInterface methods
+    bool lockRequest(unsigned long lockTimeout_ms);
+    bool unlock();
+    bool writeRequest(const void* output, size_t size,
+        unsigned long writeTimeout_ms);
+    bool readRequest(unsigned long replyTimeout_ms,
+        unsigned long readTimeout_ms, long expectedLength, bool async);
+    bool acceptEvent(unsigned long mask, unsigned long replytimeout_ms);
+    const char* busName();
+    void release();
+    bool supportsEvent();
+    bool supportsAsyncRead();
+
+public:
+    // StreamBusInterface static methods
+    static StreamBusInterface* getBusInterface(Client* client,
+        const char* busname, int addr, const char* param);
+};
+
+RegisterStreamBusInterface(MyInterface);
+</pre>
+
+<h2>Theory of operation</h2>
+<p>
+During initialization, each <em>StreamDevice</em> instance searches for
+its bus interfaces by name.
+It does so by calling the static <code>getBusInterface</code>() method
+of every registered interface class.
+The method should check if the interface class is responsible for
+that bus and return a pointer to an interface instance,
+or NULL if the bus is not supported.
+In the latter case, <em>StreamDevice</em> will try other bus interface classes.
+When <em>StreamDevice</em> does not need the interface any more, it calls release().
+</p>
+<hr>
+<p><small>Dirk Zimoch, 2005</small></p>
+</body>
+</html>
