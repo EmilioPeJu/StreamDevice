@@ -1069,7 +1069,8 @@ compileString(StreamBuffer& buffer, const char*& source,
     int n;
     long formatPos[20];
     int numFormats = 0;
-    int newline;
+    // PJL modification - initialised newline to zero to prevent compiler warning
+    int newline = 0;
     StreamBuffer formatbuffer;
     line = getLineNumber(source);
 

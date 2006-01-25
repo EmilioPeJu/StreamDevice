@@ -75,6 +75,11 @@ public:
     };
 
 private:
+    // PJL addition 25/1/06 start
+    // Tornado compiler seems to be stricter than linux so added friend defn.
+    friend class Client;
+    // PJL addition end
+    
     friend class StreamBusInterfaceClass; // the iterator
     class RegistrarBase
     {

@@ -21,6 +21,10 @@
 #include "StreamFormatConverter.h"
 #include "StreamError.h"
 
+// PJL addition 25/1/06 
+#include <ctype.h>  // required for tolower()
+// PJL addition end
+
 typedef unsigned long ulong;
 typedef unsigned char uchar;
 
@@ -470,7 +474,15 @@ parse(const StreamFormat&, StreamBuffer& info, const char*& source, bool)
     size_t fnum;
     for (fnum = 0; fnum < sizeof(checksumMap)/sizeof(checksum); fnum++)
     {
-        if (strncasecmp(source, checksumMap[fnum].name, p-source) == 0)
+        // PJL addition 25/1/06 start
+        // Tornado string.h does not have strncasecmp so replaced it as follows   
+        bool match = true;
+        for (int i = 0; i < p-source;i++) 
+            if (tolower(source[i]) != checksumMap[fnum].name[i])
+                match = false;
+        if (match) 
+        // if (strncasecmp(source, checksumMap[fnum].name, p-source) == 0)
+        // PJL additon end 
         {
             info.append(fnum);
             source = p+1;
