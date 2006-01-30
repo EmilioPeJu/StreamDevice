@@ -12,7 +12,7 @@ include $(TOP)/configure/CONFIG
 -include ../CONFIG_STREAM
 
 HOST_OPT = NO
-CFLAGS += -Werror
+#CFLAGS += -Werror
 CXXFLAGS += -Werror
 
 LIBRARY_IOC += stream
