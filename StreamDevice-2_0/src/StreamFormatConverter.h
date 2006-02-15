@@ -55,6 +55,7 @@ public:
 };
 
 #define RegisterConverter(converter, conversions) \
+template class StreamFormatConverter::Registrar<converter>; \
 static StreamFormatConverter::Registrar<converter> \
 registrar_converter_##converter(conversions)
 

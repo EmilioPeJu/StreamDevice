@@ -15,6 +15,7 @@ HOST_OPT = NO
 #CFLAGS += -Werror
 CXXFLAGS += -Werror
 
+
 LIBRARY_IOC += stream
 
 # install stream.dbd into <top>/dbd
@@ -26,6 +27,9 @@ stream_SRCS += $(STREAM_SRCS)
 stream_SRCS += $(RECORDS:%=dev%Stream.c)
 stream_SRCS += $(BUSSES:%=%Interface.cc)
 stream_SRCS += $(FORMATS:%=%Converter.c)
+
+OBJS_vxWorks += $(BUSSES:%=%Interface.o)
+OBJS_vxWorks += $(FORMATS:%=%Converter.o)
 
 ##xxxSupport_LIBS += $(EPICS_BASE_IOC_LIBS)
 

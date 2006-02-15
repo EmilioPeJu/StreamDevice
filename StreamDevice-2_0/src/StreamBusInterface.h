@@ -150,6 +150,7 @@ public:
 };
 
 #define RegisterStreamBusInterface(interface) \
+template class StreamBusInterface::Registrar<interface>; \
 static StreamBusInterface::Registrar<interface> \
 registrar_##interface(#interface);
 
