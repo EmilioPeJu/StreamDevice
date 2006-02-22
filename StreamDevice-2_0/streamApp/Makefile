@@ -26,6 +26,9 @@ streamApp_SRCS_vxWorks += -nil-
 # Add locally compiled object code
 ##stream_SRCS += dbSubExample.c
 
+# load streamLibrary.o for vxWorks
+streamApp_OBJS_vxWorks += $(TOP)/bin/$(T_A)/streamLibrary
+
 # The following adds support from base/src/vxWorks
 streamApp_OBJS_vxWorks += $(EPICS_BASE_BIN)/vxComLibrary
 

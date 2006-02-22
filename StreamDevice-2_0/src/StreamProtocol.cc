@@ -262,7 +262,7 @@ parseProtocol(Protocol& protocol, StreamBuffer* commands)
         if (!readToken(token, " ,;{}=()$'\"", isGlobalContext(commands)))
             return false;
         debug("StreamProtocolParser::parseProtocol:"
-            " token='%s'\n", token.dump()());
+            " token='%s'\n", token.expand()());
 
         if (token[0] == 0)
         {
@@ -1081,10 +1081,12 @@ compileString(StreamBuffer& buffer, const char*& source,
     // coding is done in two steps:
     // 1) read a line from protocol source and code quoted strings,
     //    numerical bytes, tokens, etc, and replace variables and parameters
-
+    // 2) replace the formats in the line
+    // thus variables can be replaces inside the format info string
 
     while (1)
     {
+        // this is step 2: replacing the formats
         if (!*source || (newline = getLineNumber(source)) != line)
         {
             // compile all formats in this line
@@ -1113,8 +1115,10 @@ compileString(StreamBuffer& buffer, const char*& source,
                 offs += formatbuffer.length() - formatlen;
             }
             if (!*source) break;
+            numFormats = 0;
             line = newline;
         }
+        // this is step 1: coding the string
         if ((*source & 0x7f) < 0x20)
         {
             error("Unexpected byte %#04x\n",  *source & 0xFF);
@@ -1167,7 +1171,8 @@ compileString(StreamBuffer& buffer, const char*& source,
                             temp, source-1);
                         return false;
                     }
-                    if (temp < last_function_code || temp == esc)
+                    if (formatType != NoFormat &&
+                        (temp < last_function_code || temp == esc))
                     {
                         buffer.append(esc);
                     }
@@ -1182,7 +1187,8 @@ compileString(StreamBuffer& buffer, const char*& source,
                             source-1);
                         return false;
                     }
-                    if (temp < last_function_code || temp == esc)
+                    if (formatType != NoFormat &&
+                        (temp < last_function_code || temp == esc))
                     {
                         buffer.append(esc);
                     }
@@ -1206,7 +1212,8 @@ compileString(StreamBuffer& buffer, const char*& source,
                             temp, source-1);
                         return false;
                     }
-                    if (temp < last_function_code || temp == esc)
+                    if (formatType != NoFormat &&
+                        (temp < last_function_code || temp == esc))
                     {
                         buffer.append(esc);
                     }
@@ -1232,7 +1239,7 @@ compileString(StreamBuffer& buffer, const char*& source,
                         // format is allowed here
                         // just memorize position here and and do actual coding later
                         // after all variables and parameters have been replaced
-                        // so that extra information os ready for format converter
+                        // so that extra information is ready for format converter
                         if (numFormats+1 == sizeof(formatPos))
                         {
                             errorMsg(line, "Too many formats in line");
@@ -1300,7 +1307,8 @@ compileString(StreamBuffer& buffer, const char*& source,
                     "Value %s does not fit in byte\n", source);
                 return false;
             }
-            if (temp < last_function_code || temp == esc)
+            if (formatType != NoFormat &&
+                (temp < last_function_code || temp == esc))
             {
                 buffer.append(esc);
             }
@@ -1339,7 +1347,8 @@ compileString(StreamBuffer& buffer, const char*& source,
                         source);
                     return false;
                 }
-                if (c < last_function_code || c == esc)
+                if (formatType != NoFormat &&
+                    (temp < last_function_code || temp == esc))
                 {
                     buffer.append(esc);
                 }
@@ -1463,6 +1472,7 @@ compileFormat(StreamBuffer& buffer, const char*& formatstr,
                 loop = false;
         }
     }
+/*
     if (formatType != PrintFormat &&
         streamFormat.flags & (left_flag|sign_flag|space_flag|zero_flag))
     {
@@ -1483,6 +1493,7 @@ compileFormat(StreamBuffer& buffer, const char*& formatstr,
             "Can't use modifiers ' ' and '+' together\n");
         return false;
     }
+*/
     // look for width
     unsigned long val;
     char* p;

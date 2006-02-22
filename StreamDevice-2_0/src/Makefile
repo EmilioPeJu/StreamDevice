@@ -28,8 +28,16 @@ stream_SRCS += $(RECORDS:%=dev%Stream.c)
 stream_SRCS += $(BUSSES:%=%Interface.cc)
 stream_SRCS += $(FORMATS:%=%Converter.c)
 
-OBJS_vxWorks += $(BUSSES:%=%Interface.o)
-OBJS_vxWorks += $(FORMATS:%=%Converter.o)
+#OBJS_vxWorks += $(BUSSES:%=%Interface.o)
+#OBJS_vxWorks += $(FORMATS:%=%Converter.o)
+
+# Build vxWorks streamLibrary.o
+# (vxWorks linker seems to remove these from stream.o because they are not referenced. 
+#  Until we think of a better solution we will build a vxWorkes combined object 
+#  library or the missing bits)
+OBJLIB_vxWorks += stream
+OBJLIB_SRCS += $(BUSSES:%=%Interface.cc)
+OBJLIB_SRCS += $(FORMATS:%=%Converter.c)
 
 ##xxxSupport_LIBS += $(EPICS_BASE_IOC_LIBS)
 
