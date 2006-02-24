@@ -500,6 +500,7 @@ print(const StreamFormat& format, StreamBuffer& output)
 {
     long sum;
     int fnum = format.info()[0];
+    int outchar;
 
     debug("StreamChecksumConverter %s: output to check: \"%s\"\n",
         checksumMap[fnum].name, output.expand(format.width)());
@@ -520,8 +521,16 @@ print(const StreamFormat& format, StreamBuffer& output)
         {
             debug("StreamChecksumConverter %s: little endian appending 0x%lX\n",
                 checksumMap[fnum].name, sum & 0xff);
-            output.append(sum & 0xff);
+            outchar = sum & 0xff;
             sum >>= 8;
+            if (format.flags & zero_flag) // Ascii output
+            {
+                output.printf("%02X", outchar);
+            }
+            else // Binary output
+            {
+                output.append(outchar);
+            }
         }
     }
     else // msb first (big endian)
@@ -531,8 +540,16 @@ print(const StreamFormat& format, StreamBuffer& output)
         {
             debug("StreamChecksumConverter %s: big endian appending 0x%lX\n",
                 checksumMap[fnum].name, (sum >> 24) & 0xff);
-            output.append((sum >> 24) & 0xff);
+            outchar = ((sum >> 24) & 0xff);
             sum <<= 8;
+            if (format.flags & zero_flag) // Ascii output
+            {
+                output.printf("%02X", outchar);
+            }
+            else // Binary output
+            {
+                output.append(outchar);
+            }
         }
     }
     return true;
@@ -543,6 +560,7 @@ scan(const StreamFormat& format, StreamBuffer& input, long& cursor)
 {
     long sum;
     int fnum = format.info()[0];
+    int inchar;
 
     debug("StreamChecksumConverter %s: input to check: \"%s\n",
         checksumMap[fnum].name, input.expand(format.width,cursor)());
@@ -555,12 +573,20 @@ scan(const StreamFormat& format, StreamBuffer& input, long& cursor)
         checksumMap[fnum].name,
         sum & (0xffffffff >> (8*(4-checksumMap[fnum].bytes))));
 
-    unsigned i;
+    unsigned i,j;
     if (format.flags & alt_flag) // lsb first (little endian)
     {
         for (i = 0; i < checksumMap[fnum].bytes; i++)
         {
-            if (input[cursor+i] != ((sum >> 8*i) & 0xff))
+            if (format.flags & zero_flag) // Ascii format
+            {
+                sscanf(input(cursor+2*i), "%2X", &inchar);
+            }
+            else // Binary format
+            {
+                inchar = input[cursor+i];
+            }
+            if (inchar != ((sum >> 8*i) & 0xff))
             {
                 error("Input does not match checksum 0x%lX\n", sum);
                 return -1;
@@ -569,9 +595,17 @@ scan(const StreamFormat& format, StreamBuffer& input, long& cursor)
     }
     else // msb first (big endian)
     {
-        for (i = 0; i < checksumMap[fnum].bytes; i++)
+        for (i = checksumMap[fnum].bytes, j = 0; i > 0; i--, j++)
         {
-            if (input[cursor+checksumMap[fnum].bytes-i-1] != ((sum >> 8*i) & 0xff))
+            if (format.flags & zero_flag) // Ascii format
+            {
+                sscanf(input(cursor+2*i-2), "%2X", &inchar);
+            }
+            else // Binary format
+            {
+                inchar = input[cursor+i-1];
+            }
+            if (inchar != ((sum >> 8*j) & 0xff))
             {
                 error("Input does not match checksum 0x%lX\n", sum);
                 return -1;
@@ -579,7 +613,14 @@ scan(const StreamFormat& format, StreamBuffer& input, long& cursor)
         }
     }
 
-    return checksumMap[fnum].bytes;
+    if (format.flags & zero_flag)
+    {
+        return checksumMap[fnum].bytes * 2;
+    }
+    else
+    {
+        return checksumMap[fnum].bytes;
+    }
 }
 
 RegisterConverter (StreamChecksumConverter, "<");

@@ -1474,10 +1474,10 @@ compileFormat(StreamBuffer& buffer, const char*& formatstr,
     }
 /*
     if (formatType != PrintFormat &&
-        streamFormat.flags & (left_flag|sign_flag|space_flag|zero_flag))
+        streamFormat.flags & (left_flag|sign_flag|space_flag))
     {
         errorMsg(line,
-            "Use of format modifiers '-', '+', ' ', '0' "
+            "Use of format modifiers '-', '+', ' ' "
             "only allowed in output formats\n");
         return false;
     }
