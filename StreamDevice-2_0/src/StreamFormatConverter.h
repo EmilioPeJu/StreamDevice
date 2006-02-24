@@ -117,7 +117,8 @@ registrar_converter_##converter(conversions)
 * The length of the info string can be found in format.infolen.
 *
 * In printf(), append the converted value to output. Do not modify what is
-* already in output. Return true on success, false on failure.
+* already in output (unless you really know what you're doing).
+* Return true on success, false on failure.
 *
 * In scanf(), read the value from input and return the number of consumed
 * bytes. In the string version, don't write more bytes than maxlen! If the
@@ -132,7 +133,7 @@ registrar_converter_##converter(conversions)
 * RegisterConverter (your_class, "conversions");
 *
 * in the global context of your file.
-* Conversions is a string containing all conversion characters
+* "conversions" is a string containing all conversion characters
 * handled by your class.
 *
 * For examples see StreamFormatConverter.cc.

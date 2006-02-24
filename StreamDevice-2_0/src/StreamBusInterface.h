@@ -75,12 +75,8 @@ public:
     };
 
 private:
-    // PJL addition 25/1/06 start
-    // Tornado compiler seems to be stricter than linux so added friend defn.
-    friend class Client;
-    // PJL addition end
-    
     friend class StreamBusInterfaceClass; // the iterator
+    friend class Client;
     class RegistrarBase
     {
         friend class StreamBusInterfaceClass; // the iterator
@@ -108,6 +104,7 @@ public:
     };
 
     Client* client;
+    virtual ~StreamBusInterface() {};
 
 protected:
     const char* eos;
@@ -124,7 +121,6 @@ protected:
         { client->eventCallback(status); }
     long priority() { return client->priority(); }
     const char* clientName() { return client->name(); }
-    virtual ~StreamBusInterface() {};
 
 // default implementations
     virtual bool setEos(const char* eos, size_t eoslen);

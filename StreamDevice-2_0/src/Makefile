@@ -1,12 +1,6 @@
 TOP=../..
 
 include $(TOP)/configure/CONFIG
-#----------------------------------------
-#  ADD MACRO DEFINITIONS AFTER THIS LINE
-#=============================
-
-#==================================================
-# Build an IOC support library
 
 -include CONFIG_STREAM
 -include ../CONFIG_STREAM
@@ -14,7 +8,6 @@ include $(TOP)/configure/CONFIG
 HOST_OPT = NO
 #CFLAGS += -Werror
 CXXFLAGS += -Werror
-
 
 LIBRARY_IOC += stream
 
@@ -28,9 +21,6 @@ stream_SRCS += $(RECORDS:%=dev%Stream.c)
 stream_SRCS += $(BUSSES:%=%Interface.cc)
 stream_SRCS += $(FORMATS:%=%Converter.c)
 
-#OBJS_vxWorks += $(BUSSES:%=%Interface.o)
-#OBJS_vxWorks += $(FORMATS:%=%Converter.o)
-
 # Build vxWorks streamLibrary.o
 # (vxWorks linker seems to remove these from stream.o because they are not referenced. 
 #  Until we think of a better solution we will build a vxWorkes combined object 
@@ -39,20 +29,13 @@ OBJLIB_vxWorks += stream
 OBJLIB_SRCS += $(BUSSES:%=%Interface.cc)
 OBJLIB_SRCS += $(FORMATS:%=%Converter.c)
 
-##xxxSupport_LIBS += $(EPICS_BASE_IOC_LIBS)
-
 # use memguard
 #CPPFLAGS += -include ../memguard.h
 #LIB_SRCS += memguard.cc
 
 INC += devStream.h
 
-#=============================
-
-
 include $(TOP)/configure/RULES
-#----------------------------------------
-#  ADD RULES AFTER THIS LINE
 
 # update version string (contains __DATE__ and __TIME__)
 # each time make runs

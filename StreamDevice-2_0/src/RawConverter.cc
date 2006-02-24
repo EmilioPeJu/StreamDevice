@@ -44,7 +44,6 @@ print(const StreamFormat& format, StreamBuffer& output, long value)
     if (prec == -1) prec = 1; // default: 1 byte
     int width = prec;         // number of bytes in output
     if (format.width > width) width = format.width;
-    // PJL modification - initialised byte to zero to prevent compiler warning
     char byte = 0;
     if (format.flags & alt_flag) // lsb first (little endian)
     {

@@ -44,7 +44,7 @@ typedef struct StreamFormat
     char conv;
     StreamFormatType type;
     unsigned char flags;
-    signed short prec;
+    short prec;
     unsigned short width;
     unsigned short infolen;
 #ifdef __cplusplus

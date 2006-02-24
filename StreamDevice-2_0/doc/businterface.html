@@ -2,25 +2,39 @@
     "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
-<title>StreamDevice:Bus Interface API</title>
+<title>StreamDevice: Bus API</title>
 <link rel="shortcut icon" href="sls_icon.ico">
 <link rel="stylesheet" type="text/css" href="stream.css">
 <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <meta name="author" content="Dirk Zimoch">
+<style>
+.indent {text-indent:-4ex; margin-left:4ex; margin-top:0.5ex;text-align:left;}
+</style>
 </head>
 <body>
-<h1>Bus Interface API</h1>
+<h1>Bus API</h1>
+
+<h2>Bus Interface Class</h2>
 <p>
 A bus interface is a C++ class that inherits from
-<code>StreamBusInterface</code>
-(<code>#include &lt;StreamBusInterface.h&gt;</code>).
+<em>StreamBusInterface</em>.
 Its purpose is to provide an interface to <em>StreamDevice</em> for a
 low-level I/O bus driver.
-<em>StreamDevice</em> acts as a client of the interface, calling interface
-methods and receiving replies via callbacks.
+The interface class must be registered via a call to
+<code><a href="#RegisterStreamBusInterface">
+RegisterStreamBusInterface</a>()</code>
+in the global context of the C++ file (not in a header file).
 </p>
 <p>
-Interface methods called by <em>StreamDevice</em> must not block.
+<em>StreamDevice</em> acts as a client of the interface, calling interface
+methods and receiving replies via callbacks.
+Interface methods called by <em>StreamDevice</em> must not block for
+arbitrary long times.
+That means they are allowed to take mutex semaphores to protect their
+internal data structures but they must not take event semaphores to 
+wait for external I/O or similar.
+</p>
+<p>
 It is assumed that the interface creates a separate thread to handle
 blocking I/O and to call the callback methods in the context of that
 thread when I/O has completed.
@@ -29,35 +43,11 @@ again.
 Much of the work of <em>StreamDevice</em> will be done in the context of
 those callbacks, i.e. in the interface thread, thus be generous with stack.
 </p>
-<p>
-The interface must implement the following methods:
-<code>getBusInterface()</code>,
-<code>lockRequest()</code>,
-<code>unlock()</code>,
-<code>writeRequest()</code>,
-<code>readRequest()</code>,
-<code>abort()</code>,
-<code>release()</code>.
-</p>
-<p>
-It may implement the methods if the bus supports events and asynchronous
-reads:
-<code>supportsAsyncRead()</code>,
-<code>supportsEvent()</code>,
-<code>acceptEvent()</code>.
-</p>
-<p>
-It also may override the virtual methods
-<code>setEos()</code> and
-<code>release()</code>.
-</p>
-<p>
-The interface class must be registered via
-<code>RegisterStreamBusInterface()</code>.
-</p>
 
-<h2>Example bus interface class declaration</h2>
+<h3>Example bus interface class declaration</h3>
 <pre>
+#include &lt;StreamBusInterface.h&gt;
+
 class MyInterface : StreamBusInterface
 {
     // ... (internally used attributes an methods)
@@ -65,41 +55,171 @@ class MyInterface : StreamBusInterface
     MyInterface(Client* client);
     ~MyInterface();
 
-    // StreamBusInterface methods
+    // StreamBusInterface virtual methods
     bool lockRequest(unsigned long lockTimeout_ms);
     bool unlock();
     bool writeRequest(const void* output, size_t size,
         unsigned long writeTimeout_ms);
     bool readRequest(unsigned long replyTimeout_ms,
-        unsigned long readTimeout_ms, long expectedLength, bool async);
-    bool acceptEvent(unsigned long mask, unsigned long replytimeout_ms);
+        unsigned long readTimeout_ms,
+        long expectedLength, bool async);
+    bool acceptEvent(unsigned long mask,
+        unsigned long replytimeout_ms);
     const char* busName();
     void release();
     bool supportsEvent();
     bool supportsAsyncRead();
 
 public:
-    // StreamBusInterface static methods
-    static StreamBusInterface* getBusInterface(Client* client,
-        const char* busname, int addr, const char* param);
+    // creator method
+    static StreamBusInterface* getBusInterface(
+        Client* client, const char* busname,
+        int addr, const char* param);
 };
-
-RegisterStreamBusInterface(MyInterface);
 </pre>
 
+<h3>Methods to implement</h3>
+<p>
+The interface class must implement a public static creator method:
+</p>
+<div class="indent">
+<code>static StreamBusInterface*
+    <a href="#getBusInterface">getBusInterface</a>(Client*&nbsp;client,
+        const&nbsp;char*&nbsp;busname, int&nbsp;addr,
+        const&nbsp;char*&nbsp;param);</code>
+</div>
+<p>
+And it must implement the following pure virtual methods:
+</p>
+<div class="indent">
+<code>bool lockRequest(unsigned&nbsp;long&nbsp;lockTimeout_ms);</code>
+</div>
+<div class="indent">
+<code>bool unlock();</code>
+</div>
+<div class="indent">
+<code>bool writeRequest(const&nbsp;void*&nbsp;output, size_t&nbsp;size,
+    unsigned&nbsp;long&nbsp;writeTimeout_ms);</code>
+</div>
+<div class="indent">
+<code>bool readRequest(unsigned&nbsp;long&nbsp;replyTimeout_ms,
+    unsigned&nbsp;long&nbsp;readTimeout_ms,
+    long&nbsp;expectedLength, bool&nbsp;async);</code>
+</div>
+<p>
+It may implement additional virtual methods if the bus supports
+events and/or asynchronous reads:
+<div class="indent">
+<code>bool supportsAsyncRead();</code>
+</div>
+<div class="indent">
+<code>bool supportsEvent();</code>
+</div>
+<div class="indent">
+<code>bool acceptEvent(unsigned&nbsp;long&nbsp;mask, 
+    unsigned&nbsp;long&nbsp;replytimeout_ms);</code>
+</div>
+</p>
+<p>
+It also may override the following virtual methods:
+<div class="indent">
+<code>bool setEos(const&nbsp;char*&nbsp;eos, size_t&nbsp;eoslen);</code>
+</div>
+<div class="indent">
+<code>void <a href="#getBusInterface">release</a>();</code>
+</div>
+</p>
+
+<h3>Callback methods provided</h3>
+<p>
+<em>StreamBusInterface</em> implements a set of protected callback
+methods which should be called in response to the above request methods:
+</p>
+<div class="indent">
+<code>void lockCallback(IoStatus&nbsp;status);</code>
+</div>
+<div class="indent">
+<code>void writeCallback(IoStatus&nbsp;status);</code>
+</div>
+<div class="indent">
+<code>long readCallback(IoStatus&nbsp;status,
+        const&nbsp;void*&nbsp;input&nbsp;=&nbsp;NULL,
+        long&nbsp;size&nbsp;=&nbsp;0);</code>
+</div>
+<div class="indent">
+<code>void eventCallback(IoStatus&nbsp;status);</code>
+</div>
+
+<h3>Other accessible methods, attibutes, and types</h3>
+
+<div class="indent">
+<code>StreamBusInterface(Client*&nbsp;client);</code>
+</div>
+<div class="indent">
+<code>long priority();</code>
+</div>
+<div class="indent">
+<code>const char* clientName();</code>
+</div>
+<div class="indent">
+<code>const&nbsp;char*&nbsp;eos;</code>
+</div>
+<div class="indent">
+<code>size_t&nbsp;eoslen;</code>
+</div>
+<div class="indent">
+<code>enum&nbsp;IoStatus {ioSuccess, ioTimeout, ioNoReply, ioEnd, ioFault};</code>
+</div>
+
 <h2>Theory of operation</h2>
+
+<a name="RegisterStreamBusInterface"></a>
+<h3>Registration: <code>RegisterStreamBusInterface()</code></h3>
+<div class="indent">
+<code>RegisterStreamBusInterface(<i>interfaceClass</i>);</code>
+</div>
+<p>
+During initialization, the macro <code>RegisterStreamBusInterface()</code>
+creates a registrar object which registers the bus interface to
+<em>StreamDevice</em>.
+<code>RegisterStreamBusInterface()</code> must be called exactly once
+for each bus interface class in global file context.
+</p>
+
+<a name="getBusInterface"></a>
+<h3>Creation and deletion: <code>getBusInterface()</code> and
+<code>release()</code></h3>
+<div class="indent">
+<code>static StreamBusInterface* getBusInterface(Client*&nbsp;client,
+        const&nbsp;char*&nbsp;busname, int&nbsp;addr,
+        const&nbsp;char*&nbsp;param);</code>
+</div>
 <p>
 During initialization, each <em>StreamDevice</em> instance searches for
 its bus interfaces by name.
-It does so by calling the static <code>getBusInterface</code>() method
+It does so by calling the static <code>getBusInterface()</code> method
 of every registered interface class.
-The method should check if the interface class is responsible for
-that bus and return a pointer to an interface instance,
-or NULL if the bus is not supported.
-In the latter case, <em>StreamDevice</em> will try other bus interface classes.
-When <em>StreamDevice</em> does not need the interface any more, it calls release().
+This method should check by <code>busname</code> if its interface class
+is responsible for that bus.
+If yes, it returns a pointer to a bus interface instance.
+If no, it returns <code>NULL</code>.
+In the latter case, <em>StreamDevice</em> will try other bus
+interface classes.
 </p>
+<p>
+When <em>StreamDevice</em> does not need the interface any more,
+it calls <code>release()</code>.
+The default implementation of <code>release()</code> assumes that
+<code>getBusInterface()</code> has created a new bus interface
+and just calls <code>delete</code>.
+You should change <code>release()</code> if that assumption is not
+correct.
+</p>
+
+<h3>Bus locking: <code>lockRequest()</code>, <code>lockCallback()</code>, <code>unlock()</code></h3>
+
 <hr>
-<p><small>Dirk Zimoch, 2005</small></p>
+<p><small>Dirk Zimoch, 2006</small></p>
+<script src="stream.js" type="text/javascript"></script>
 </body>
 </html>

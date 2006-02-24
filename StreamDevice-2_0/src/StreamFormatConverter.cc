@@ -135,11 +135,10 @@ print(const StreamFormat& format, StreamBuffer& output, long value)
 int StreamStdLongConverter::
 scan(const StreamFormat& format, const char* input, long& value)
 {
-    int length;
+    int length = -1;
     if (format.flags & skip_flag)
     {
         if (sscanf(input, format.info(), &length) < 0) return -1;
-	if (length < format.width) return -1;
     }
     else
     {
@@ -186,11 +185,10 @@ print(const StreamFormat& format, StreamBuffer& output, double value)
 int StreamStdDoubleConverter::
 scan(const StreamFormat& format, const char* input, double& value)
 {
-    int length;
+    int length = -1;
     if (format.flags & skip_flag)
     {
         if (sscanf(input, format.info(), &length) < 0) return -1;
-	if (length < format.width) return -1;
     }
     else
     {
@@ -238,7 +236,7 @@ int StreamStdStringConverter::
 scan(const StreamFormat& format, const char* input,
     char* value, size_t maxlen)
 {
-    int length = 0;
+    int length = -1;
     if (*input == '\0')
     {
         // match empty string
@@ -248,8 +246,6 @@ scan(const StreamFormat& format, const char* input,
     if (format.flags & skip_flag)
     {
         if (sscanf(input, format.info(), &length) < 0) return -1;
-	/* For a skip, sscanf will return 0 conversions, so check the length */
-	if (length < format.width) return -1;
     }
     else
     {
@@ -266,6 +262,7 @@ scan(const StreamFormat& format, const char* input,
             fmt = format.info();
         }
         if (sscanf(input, fmt, value, &length) < 1) return -1;
+        if (length < 0) return -1;
         value[length] = '\0';
         debug("StreamStdStringConverter::scan: length=%d, value=%s\n",
             length, value);
@@ -355,11 +352,10 @@ int StreamStdCharsetConverter::
 scan(const StreamFormat& format, const char* input,
     char* value, size_t maxlen)
 {
-    size_t length;
+    int length = -1;
     if (format.flags & skip_flag)
     {
         if (sscanf (input, format.info(), &length) < 0) return -1;
-	if (length < format.width) return -1;
     }
     else
     {
@@ -377,6 +373,7 @@ scan(const StreamFormat& format, const char* input,
             fmt = format.info();
         }
         if (sscanf(input, fmt, value, &length) < 1) return -1;
+        if (length < 0) return -1;
         value[length] = '\0';
         debug("StreamStdCharsetConverter::scan: length=%d, value=%s\n",
             length, value);

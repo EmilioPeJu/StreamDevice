@@ -133,13 +133,8 @@ unlock()
 bool DebugInterface::
 writeRequest(const void* output, size_t size, unsigned long writeTimeout_ms)
 {
-    // PJL modification 25/1/05
-    // added int cast to size to remove warning
     debug("DebugInterface::writeRequest(%s, \"%.*s\", %ld msec)\n",
         clientName(), (int)size, (char*)output, writeTimeout_ms);
-    //debug("DebugInterface::writeRequest(%s, \"%.*s\", %ld msec)\n",
-    //    clientName(), size, (char*)output, writeTimeout_ms);
-    // PJL modification end    
 
     // Debug interface is non-blocking,
     // thus we can call writeCallback() immediately.

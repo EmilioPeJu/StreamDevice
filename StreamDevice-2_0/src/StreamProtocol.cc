@@ -1069,7 +1069,6 @@ compileString(StreamBuffer& buffer, const char*& source,
     int n;
     long formatPos[20];
     int numFormats = 0;
-    // PJL modification - initialised newline to zero to prevent compiler warning
     int newline = 0;
     StreamBuffer formatbuffer;
     line = getLineNumber(source);
@@ -1474,10 +1473,10 @@ compileFormat(StreamBuffer& buffer, const char*& formatstr,
     }
 /*
     if (formatType != PrintFormat &&
-        streamFormat.flags & (left_flag|sign_flag|space_flag))
+        streamFormat.flags & (left_flag|sign_flag|space_flag|zero_flag))
     {
         errorMsg(line,
-            "Use of format modifiers '-', '+', ' ' "
+            "Use of format modifiers '-', '+', ' ', '0' "
             "only allowed in output formats\n");
         return false;
     }

@@ -9,8 +9,7 @@
 <meta name="author" content="Dirk Zimoch">
 </head>
 <body>
-<h1>Protocol Files</h1>
-
+<h1>StreamDevice: Protocol Files</h1>
 <a name="gen"></a>
 <h2>1. General Information</h2>
 <p>
@@ -25,26 +24,64 @@ communication bus.
 Each device type should have its own protocol file.
 I suggest to choose a file name that contains the name of the device type.
 Don't use spaces in the file name and keep it short.
-The protocol will be referenced by its name in the <code>INP</code>
+The file will be referenced by its name in the <code>INP</code>
 or <code>OUT</code> link of the records which use it.
 The protocol file must be stored in one of the directories listed
 in the environment variable <code>STREAM_PROTOCOL_PATH</code>
 (see chapter <a href="setup.html#sta">Setup</a>).
 </p>
 <p>
-The protocol file a plain text file.
+The protocol file is a plain text file.
 Everything not enclosed in quotes
 (single <code>'</code> or double <code>"</code>) is not case sensitive.
-This includes <a href="#proto">protocol names</a> and
-<a href="#var">variable names</a>.
-Words, <a href="#str">quoted strings</a>, and special characters, such as
-<code>={};</code>, may be separated by any number of any
-<span
-title="space, tab, new line, carriage return, vertical tab, form feed">
-whitespaces</span> or by comments.
-A comment is everything from an unquoted <code>#</code>
+This includes the names of <a href="#cmd">commands</a>,
+<a href="#proto">protocols</a> and <a href="#var">variables</a>.
+There may be any amount of whitespaces (space, tab, newline, ...) or
+comments between names, <a href="#str">quoted strings</a> and special
+characters, such as <code>={};</code>.
+A comment is everything starting from an unquoted <code>#</code>
 until the end of the line.
 </p>
+
+<h3>Example Protocol File:</h3>
+<pre>
+# This is an example protocol file
+
+Terminator = CR LF;
+
+# Frequency is a float
+# use ai and ao records
+
+getFrequency {
+    out "FREQ?"; in "%f";
+}
+
+setFrequency {
+    out "FREQ %f";
+    @init { getFrequency; }
+}
+
+# Switch is an enum, either OFF or ON
+# use bi and bo records
+
+getSwitch {
+    out "SW?"; in "SW %{OFF|ON}";
+}
+
+setSwitch {
+    out "SW %{OFF|ON}";
+    @init { getSwitch; }
+}
+
+# Connect a stringout record to this to get
+# a generic command interface.
+# After processing finishes, the record contains the reply.
+
+debug {
+    ExtraInput = Ignore;
+    out "%s"; in "%39c"
+}
+</pre>
 
 <a name="proto"></a>
 <h2>2. Protocols</h2>
@@ -53,8 +90,9 @@ For each function of the device type, define one protocol.
 A protocol consists of a name followed by a body in braces <code>{}</code>.
 The name must be unique within the protocol file.
 It is used to reference the protocol in the
-<code>INP</code> or <code>OUT</code> link of the record.
-It should shortly describe the function of the protocol.
+<code>INP</code> or <code>OUT</code> link of the record,
+thus keep it short.
+It should describe the function of the protocol.
 It must not contain spaces or any of the characters
 <code>,;={}()$'"\#</code>.
 </p>
@@ -63,10 +101,26 @@ The protocol body contains a sequence of <a href="#cmd">commands</a> and
 optionally <a href="#var">variable assignments</a> separated by
 <code>;</code>.
 </p>
-<h3>Example:</h3>
-<pre>
-getPosition {out "POS?"; in "%f";}
-</pre>
+<h3>Referencing other protocols</h3>
+<p>
+To save some typing, a previously defined protocol can be called inside
+another protocol like a <a href="#cmd">command</a> without parameters.
+The protocol name is replaced by the commands in the referenced protocol.
+However, this does not include any
+<a href="#var">variable assignments</a> or
+<a href="#except">exception handlers</a> from the referenced protocol.
+See the <code>@init</code> handlers in the above example.
+</p>
+<h3>Limitations</h3>
+<p>
+The <em>StreamDevice</em> protocol is not a programming language.
+It has neither loops nor conditionals
+(in this version of <em>StreamDevice</em>).
+However, if an error occurs, e.g. a timeout or a mismatch in input
+parsing, an <a href="#excep">exception handler</a> can be called to
+clean up.
+</p>
+
 
 <a name="cmd"></a>
 <h2>3. Commands</h2>
@@ -123,18 +177,6 @@ But there can be any number of commands in a protocol.
   as a command to execute.  
  </dd>
 </dl>
-<p>
-To save some typing, a previously defined protocol can be called
-inside an other protocol like a command without parameters.
-</p>
-<p>
-The <em>StreamDevice</em> protocol is <u>not</u> a programming language.
-It has neither loops nor conditionals
-(in this version of <em>StreamDevice</em>).
-However, if an error occurs, e.g. a timeout or a mismatch in input
-parsing, an <a href="#excep">exception handler</a> can be called to
-clean up.
-</p>
 
 <a name="str"></a>
 <h2>4. Strings</h2>
@@ -323,7 +365,7 @@ what they influence.
  </dd>
  <dt><code>InTerminator = $Terminator;</code></dt>
  <dd>
-  String. Affects <code>in</code> commands.
+  String. Affects <code>in</code> commands.<br>
   If a device has different terminators for input and output,
   use this for the input terminator.
   If no <code>Terminator</code> or <code>InTerminator</code>
@@ -370,9 +412,9 @@ For example a motor controller for the 3 axes X, Y, Z requires
 three protocols to set a position.
 </p>
 <pre>
-setPositionX { out "X GOTO %d"; }
-setPositionY { out "Y GOTO %d"; }
-setPositionZ { out "Z GOTO %d"; }
+moveX { out "X GOTO %d"; }
+moveY { out "Y GOTO %d"; }
+moveZ { out "Z GOTO %d"; }
 </pre>
 <p>
 It also needs three versions of any other protocol.
@@ -380,12 +422,12 @@ That means basically writing everything three times.
 To make this easier, <em>protocol arguments</em> can be used:
 </p>
 <pre>
-setPosition { out "\$1 GOTO %d"; }
+move { out "\$1 GOTO %d"; }
 </pre>
 <p>
 Now, the protocol can be references in the <code>OUT</code> link
-of three different records as <code>setPosition(X)</code>,
-<code>setPosition(Y)</code> and <code>setPosition(Z)</code>.
+of three different records as <code>move(X)</code>,
+<code>move(Y)</code> and <code>move(Z)</code>.
 Up to 9 parameters, referenced as <code>$1</code> ... <code>$9</code>
 can be specified in parentheses, separated by comma.
 The variable <code>$0</code> is replaced by the name of the protocol.
@@ -397,7 +439,19 @@ The variable <code>$0</code> is replaced by the name of the protocol.
 User defined variables are just a means to save some typing.
 Once set, a user variable can be referenced later in the protocol.
 </p>
+<pre>
+f = "FREQ";     # sets f to "FREQ" (including the quotes)
+f1 = $f " %f";  # sets f1 to "FREQ %f"
 
+getFrequency {
+    out $f "?"; # same as: out "FREQ?"; 
+    in $f1;     # same as: in "FREQ %f"; 
+}
+
+setFrequency {
+    out $f1;    # same as: out "FREQ %f"; 
+}
+</pre>
 <a name="except"></a>
 <h2>6. Exception Handlers</h2>
 <p>
@@ -450,6 +504,13 @@ There is a fixed set of exception handler names starting with
   Also see chapter <a href="processing.html#init">Record Processing</a>.
  </dd>
 </dl>
+<h3>Example:</h3>
+<pre>
+setPosition {
+    out "POS %f";
+    @init { out "POS?"; in "POS %f"; }
+}    
+</pre>
 <p>
 After executing the exception handler, the protocol terminates.
 If any exception occurs within an exception handler, no other handler
@@ -457,9 +518,9 @@ is called but the protocol terminates immediately.
 An exception handler uses all <a href="#sysvar">system variable</a>
 settings from the protocol in which the exception occurred.
 </p>
-
 <hr>
 <p align="right"><a href="formats.html">Next: Format Converters</a></p>
-<p><small>Dirk Zimoch, 2005</small></p>
+<p><small>Dirk Zimoch, 2006</small></p>
+<script src="stream.js" type="text/javascript"></script>
 </body>
 </html>

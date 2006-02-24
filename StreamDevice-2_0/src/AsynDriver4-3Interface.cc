@@ -452,15 +452,9 @@ unlock()
 bool AsynDriverInterface::
 writeRequest(const void* output, size_t size, unsigned long writeTimeout_ms)
 {
-    // PJL modification 25/1/05
-    // added int cast to size to remove warning
     debug("AsynDriverInterface::writeRequest(%s, \"%.*s\", %ld msec)\n",
         clientName(), (int)size, StreamBuffer(output, size).expand()(),
         writeTimeout_ms);
-    //debug("AsynDriverInterface::writeRequest(%s, \"%.*s\", %ld msec)\n",
-    //    clientName(), size, StreamBuffer(output, size).expand()(),
-    //    writeTimeout_ms);
-    // PJL modification end    
     asynStatus status;
     outputBuffer = (char*)output;
     outputSize = size;

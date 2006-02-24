@@ -67,3 +67,5 @@ proc $paste {w x y} {
     tkTextPaste_org $w $x $y
     $w see end
 }
+
+bind Text <Control-c> [list $insert %W "\x03"]

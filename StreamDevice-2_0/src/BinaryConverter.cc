@@ -72,8 +72,9 @@ print(const StreamFormat& format, StreamBuffer& output, long value)
     if (format.width > width) width = format.width;
     char zero = format.info()[0];
     char one = format.info()[1];
-    if (!(format.flags & left_flag)) // pad left
+    if (!(format.flags & left_flag))
     {
+        // pad left
         char fill = (format.flags & zero_flag) ? zero : ' ';
         while (width > prec)
         {
@@ -86,8 +87,9 @@ print(const StreamFormat& format, StreamBuffer& output, long value)
         output.append((value & (1 << prec)) ? one : zero);
         width--;
     }
-    while (width--) // pad right
+    while (width--)
     {
+        // pad right
         output.append(' ');
     }
     return true;

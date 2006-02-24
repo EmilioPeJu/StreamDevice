@@ -22,6 +22,9 @@ function show(name) {
         active="";
     }
 }
+function printview() {
+    w = window.open(parent.text.location, "_parent", "dependent=yes,width=800,menubar=yes,toolbar=yes,location=yes");
+}
 -->
 </script>
 <style type="text/css">
@@ -31,24 +34,32 @@ a:visited {color:#333333;text-decoration:none;}
 a:hover   {color:#FF0000;text-decoration:none;}
 a:active  {color:#FF0000;text-decoration:none;}
 .top      {margin-bottom: 10px;
+           margin-top: 10px;
            border-bottom: solid 1px black;}
 .sub      {margin-left: 10px;
            margin-top: 5px;
            line-height:120%;}
+.subsub    {margin-left: 15px;
+           line-height:120%;
+           font-size:75%;}
+h1        {font-size:120%;
+           margin-top: 20px;
+           margin-right: 20px;
+           margin-bottom: 0px;
+           color:#267ab8;}
 -->
 </style>
 
 </head>
 <body background="bg.gif"
-    style="margin:15px 0px 0px 0px;
+    style="margin:0px 0px 0px 0px;
            font-family:sans-serif;
            font-weight:bold;
            font-size:small">
 <p align="center">
-<a href="http://www.aps.anl.gov/epics" target="ex"><img
-    src="EPICS.gif" border=0 width=50 height=50 alt="EPICS"></a>
 </p>
-<div style="margin-left: 20px; margin-top: 20px;">
+<div style="margin-left: 20px;">
+ <h1>User's Guide</h1>
  <div class="top">
   <a target="text" href="stream.html">Intro</a>
  </div>
@@ -73,6 +84,11 @@ a:active  {color:#FF0000;text-decoration:none;}
    <a target="text" href="protocol.html#cmd">Commands</a><br>
    <a target="text" href="protocol.html#str">Strings</a><br>
    <a target="text" href="protocol.html#var">Variables</a><br>
+   <div class="subsub">
+    <a target="text" href="protocol.html#sysvar">System variables</a><br>
+    <a target="text" href="protocol.html#argvar">Protocol Arguments</a><br>
+    <a target="text" href="protocol.html#usrvar">User variables</a><br>
+   </div>
    <a target="text" href="protocol.html#except">Exception Handlers</a><br>
   </div>
  </div>
@@ -122,9 +138,23 @@ a:active  {color:#FF0000;text-decoration:none;}
    <a target="text" href="calcout.html">calcout</a><br>
   </div>
  </div>
+ <h1>Programmer's Guide</h1>
+ <div class="top">
+  <a target="text" href="recordinterface.html">Record API</a>
+ </div>
+ <div class="top">
+  <a target="text" href="businterface.html">Bus API</a>
+ </div>
+ <div class="top">
+  <a target="text" href="converterinterface.html">Converter API</a>
+ </div>
 </div>
+<p align="center" style="margin-top:20px;">
 <script type="text/javascript">
 <!--
+    document.writeln('<a href="javascript:printview()">' +
+        '<img src="printer.gif" alt="Printer friendly" border=0><br>' +
+        '<small>Printer friendly</small></a>');
     show('setup');
     show('protocol');
     show('formats');
@@ -132,6 +162,7 @@ a:active  {color:#FF0000;text-decoration:none;}
     show('records');
 -->
 </script>
+</p>
 </body>
 </html>
 

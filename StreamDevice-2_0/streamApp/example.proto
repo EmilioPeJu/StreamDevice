@@ -118,8 +118,10 @@ checksum {
     out "%s%<sum32> sum32";
     out "%s%<crc32> crc32"; 
     out "%s%<crc32r> crcr32";
-    out "%s%<jamcrc> jamcrc";
+    out "%s%#<jamcrc> jamcrc";
     out "%s%<adler32> adler32";
+    out "%s%#<adler32> adler32 little endian";
+    in "%3s%#<jamcrc>";
 }
 
 variable = 18 20 2 0 7;
