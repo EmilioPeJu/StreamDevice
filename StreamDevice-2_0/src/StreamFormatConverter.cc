@@ -138,7 +138,8 @@ scan(const StreamFormat& format, const char* input, long& value)
     int length;
     if (format.flags & skip_flag)
     {
-        if (sscanf(input, format.info(), &length) < 1) return -1;
+        if (sscanf(input, format.info(), &length) < 0) return -1;
+	if (length < format.width) return -1;
     }
     else
     {
@@ -188,7 +189,8 @@ scan(const StreamFormat& format, const char* input, double& value)
     int length;
     if (format.flags & skip_flag)
     {
-        if (sscanf(input, format.info(), &length) < 1) return -1;
+        if (sscanf(input, format.info(), &length) < 0) return -1;
+	if (length < format.width) return -1;
     }
     else
     {
@@ -245,7 +247,9 @@ scan(const StreamFormat& format, const char* input,
     }
     if (format.flags & skip_flag)
     {
-        if (sscanf(input, format.info(), &length) < 1) return -1;
+        if (sscanf(input, format.info(), &length) < 0) return -1;
+	/* For a skip, sscanf will return 0 conversions, so check the length */
+	if (length < format.width) return -1;
     }
     else
     {
@@ -354,7 +358,8 @@ scan(const StreamFormat& format, const char* input,
     size_t length;
     if (format.flags & skip_flag)
     {
-        if (sscanf (input, format.info(), &length) < 1) return -1;
+        if (sscanf (input, format.info(), &length) < 0) return -1;
+	if (length < format.width) return -1;
     }
     else
     {
