@@ -619,7 +619,6 @@ parseValue(StreamBuffer& buffer, Protocol& protocol, bool lazy)
                 // let's be generous with missing ';' before '}'
                 ungetc (c, file);
             }
-            if (buffer[-1] == ' ') buffer.truncate(-1); // skip trailing space
             return true;
         }
     }
