@@ -34,6 +34,14 @@ OBJLIB_SRCS += $(FORMATS:%=%Converter.c)
 #LIB_SRCS += memguard.cc
 
 INC += devStream.h
+#INC += memguard.h
+INC += StreamBuffer.h
+INC += StreamBusInterface.h
+INC += StreamCore.h
+INC += StreamError.h
+INC += StreamFormatConverter.h
+INC += StreamFormat.h
+INC += StreamProtocol.h
 
 include $(TOP)/configure/RULES
 
