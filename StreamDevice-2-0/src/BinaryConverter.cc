@@ -27,13 +27,13 @@
 class StreamBinaryConverter : public StreamFormatConverter
 {
     int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int print(const StreamFormat&, StreamBuffer&, long);
-    int scan(const StreamFormat&, const char*, long&);
+    int printLong(const StreamFormat&, StreamBuffer&, long);
+    int scanLong(const StreamFormat&, const char*, long&);
 };
 
 int StreamBinaryConverter::
 parse(const StreamFormat& format, StreamBuffer& info,
-    const char*& source, bool scanFormat)
+    const char*& source, bool)
 {
     if (format.conv == 'B')
     {
@@ -58,7 +58,7 @@ parse(const StreamFormat& format, StreamBuffer& info,
 }
 
 int StreamBinaryConverter::
-print(const StreamFormat& format, StreamBuffer& output, long value)
+printLong(const StreamFormat& format, StreamBuffer& output, long value)
 {
     int prec = format.prec;
     if (prec == -1)
@@ -70,8 +70,8 @@ print(const StreamFormat& format, StreamBuffer& output, long value)
     if (prec == 0) prec++; // print at least one bit
     int width = prec;
     if (format.width > width) width = format.width;
-    char zero = format.info()[0];
-    char one = format.info()[1];
+    char zero = format.info[0];
+    char one = format.info[1];
     if (!(format.flags & left_flag))
     {
         // pad left
@@ -96,15 +96,15 @@ print(const StreamFormat& format, StreamBuffer& output, long value)
 }
 
 int StreamBinaryConverter::
-scan(const StreamFormat& format, const char* input, long& value)
+scanLong(const StreamFormat& format, const char* input, long& value)
 {
     long val = 0;
     int width = format.width;
     if (width == 0) width = -1;
     int length = 0;
     while (isspace(input[++length])); // skip whitespaces
-    char zero = format.info()[0];
-    char one = format.info()[1];
+    char zero = format.info[0];
+    char one = format.info[1];
     if (input[length] != zero && input[length] != one) return -1;
     while (width-- && (input[length] == zero || input[length] == one))
     {

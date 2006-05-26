@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 
-#ifdef __vxworks
+#if defined(__vxworks) || defined(vxWorks)
 // vxWorks has no vsnprintf
 #include <epicsStdio.h>
 #define vsnprintf epicsVsnprintf
@@ -115,18 +115,20 @@ find(const void* m, long size, long start) const
         start += len;
         if (start < 0) start = 0;
     }
+    if (start >= len-size+1) return -1; // find nothing after end
     if (!m || size <= 0) return start; // find empty string
     const char* s = static_cast<const char*>(m);
     char* b = buffer+offs;
-    char* p = b;
+    char* p = b+start;
     long i;
-    while ((p = static_cast<char*>(memchr(p, s[0], b+len-p))))
+    while ((p = static_cast<char*>(memchr(p, s[0], b-p+len-size+1))))
     {
-        for (i=1; p[i] == s[i]; i++)
+        i = 1;
+        while (p[i] == s[i])
         {
-            if (i >= size) return p-b;
+            if (++i >= size) return p-b;
         }
-        p += i;
+        p++;
     }
     return -1;
 }

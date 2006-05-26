@@ -19,13 +19,13 @@
 
 #include "StreamBusInterface.h"
 
-StreamBusInterface::RegistrarBase* StreamBusInterface::RegistrarBase::first;
+StreamBusInterfaceRegistrarBase* StreamBusInterfaceRegistrarBase::first;
 
-StreamBusInterface::RegistrarBase::
-RegistrarBase(const char* name) : name(name)
+StreamBusInterfaceRegistrarBase::
+StreamBusInterfaceRegistrarBase(const char* name) : name(name)
 {
     next = NULL;
-    RegistrarBase** pr;
+    StreamBusInterfaceRegistrarBase** pr;
     for (pr = &first; *pr; pr = &(*pr)->next);
     *pr = this;
 }
@@ -37,10 +37,10 @@ StreamBusInterface(Client* client) :
 }
 
 bool StreamBusInterface::
-setEos(const char* eos, size_t eoslen)
+setEos(const char* _eos, size_t _eoslen)
 {
-    this->eos = eos;
-    this->eoslen = eoslen;
+    eos = _eos;
+    eoslen = _eoslen;
     return true;
 }
 
@@ -59,7 +59,7 @@ supportsAsyncRead()
 StreamBusInterface* StreamBusInterface::
 find(Client* client, const char* busname, int addr, const char* param)
 {
-    RegistrarBase* r;
+    StreamBusInterfaceRegistrarBase* r;
     StreamBusInterface* bus;
     for (r = r->first; r; r = r->next)
     {
@@ -70,7 +70,7 @@ find(Client* client, const char* busname, int addr, const char* param)
 }
 
 bool StreamBusInterface::
-acceptEvent(unsigned long mask, unsigned long replyTimeout_ms)
+acceptEvent(unsigned long, unsigned long)
 {
     return false;
 }

@@ -34,7 +34,7 @@ struct memheader
     unsigned long magic;
 };
 
-void memguardReport();
+extern "C" void memguardReport();
 
 class memguard
 {
@@ -47,12 +47,12 @@ memheader* memheader::first = NULL;
 
 static memguard guard;
 
-void memguardReport()
+extern "C" void memguardReport()
 {
     guard.report();
 }
 
-void* operator new(size_t size, const char* file, long line)
+void* operator new(size_t size, const char* file, long line) throw (std::bad_alloc)
 {
     memheader* header;
     memheader** prev;
@@ -78,17 +78,17 @@ void* operator new(size_t size, const char* file, long line)
 }
 
 
-void* operator new[](size_t size, const char* file, long line)
+void* operator new[](size_t size, const char* file, long line) throw (std::bad_alloc)
 {
     return operator new(size, file, line);
 }
 
-void* operator new(size_t size)
+void* operator new(size_t size) throw (std::bad_alloc)
 {
     return operator new(size, NULL, 0);
 }
 
-void* operator new[](size_t size)
+void* operator new[](size_t size) throw (std::bad_alloc)
 {
     return operator new(size, NULL, 0);
 }
@@ -103,7 +103,7 @@ int memguardLocation(const char* file, long line)
     return 1;
 }
 
-void operator delete (void* memory)
+void operator delete (void* memory) throw ()
 {
     memheader* header;
     memheader** prev;
@@ -160,7 +160,7 @@ void operator delete (void* memory)
     }
 }
 
-void operator delete[](void* memory)
+void operator delete[](void* memory) throw ()
 {
     operator delete(memory);
 }

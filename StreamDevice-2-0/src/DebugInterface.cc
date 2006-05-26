@@ -64,7 +64,7 @@ DebugInterface::
 // Do we have this bus/addr ?
 StreamBusInterface* DebugInterface::
 getBusInterface(Client* client,
-    const char* busname, int addr, const char* param)
+    const char* busname, int addr, const char*)
 {
     if (strcmp(busname, "debug") == 0)
     {

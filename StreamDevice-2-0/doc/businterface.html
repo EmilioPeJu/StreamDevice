@@ -7,13 +7,11 @@
 <link rel="stylesheet" type="text/css" href="stream.css">
 <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <meta name="author" content="Dirk Zimoch">
-<style>
-.indent {text-indent:-4ex; margin-left:4ex; margin-top:0.5ex;text-align:left;}
-</style>
 </head>
 <body>
 <h1>Bus API</h1>
 
+<a name="class"></a>
 <h2>Bus Interface Class</h2>
 <p>
 <em>StreamDevice</em> already comes with an interface to <a target="ex"
@@ -188,7 +186,8 @@ size_t&nbsp;eoslen;
 enum&nbsp;IoStatus {ioSuccess, ioTimeout, ioNoReply, ioEnd, ioFault};
 </code></div>
 
-<h2>Theory of operation</h2>
+<a name="theory"></a>
+<h2>Theory of Operation</h2>
 
 <a name="registration"></a>
 <h3>Registration</h3>
@@ -249,7 +248,7 @@ This name is for use in error and log messages.
 </p>
 <p>
 On failure, or if this interface class is not responsible for that bus,
-getBusInterface should return <code>NULL</code>.
+<code>getBusInterface</code> should return <code>NULL</code>.
 The client will then try other bus interface classes.
 </p>
 <p>
@@ -294,7 +293,7 @@ offline, <code>lockCallback(ioFault)</code> may be called.
 </p>
 <p>
 Normally, it is not necessary to lock the complete bus but only one
-devices (i.e. one address).
+device (i.e. one address).
 Other clients should still be able to talk to other devices on the same bus.
 </p>
 <p>
@@ -339,8 +338,9 @@ the interface should abort the transmision and call
 <code>writeCallback(ioTimeout)</code>.
 </p>
 <p>
-If output is impossible, e.g. because the device is known to be offline,
-the interface may call <code>writeCallback(ioFault)</code>.
+If output is impossible, e.g. because the connection is broken
+or the device is read-only, the interface may call
+<code>writeCallback(ioFault)</code>.
 </p>
 <p>
 The interface must transmit excactly the <code>size</code> bytes
@@ -376,8 +376,84 @@ bool setEos(const&nbsp;char*&nbsp;eos,
 bool supportsAsyncRead();
 </code></div>
 <p>
-To prepare for input, the client calls <code>readRequest()</code>.
-This can also happen on an unlocked device.
+The client calls <code>readRequest()</code> to tell the bus interface
+that it expects input.
+Depending on the bus, this function might have to set the bus hardware
+into receive mode.
+If <code>expectedLength&gt;0</code>, the the bus interface should stop
+input after this number of bytes have been received.
+The device may be not locked when <code>readRequest()</code> is called.
+</p>
+<p>
+This function must not block until input is available.
+Instead it should arrange for
+<code>readCallback(ioSuccess,buffer,size)</code> to be called
+when input has been received, where <code>buffer</code> is a pointer to
+<code>size</code> input bytes.
+The bus interface is responsible for the buffer.
+The client copies its contents. It does not modify or free it.
+It is not necessary to wait until all data has been received.
+The bus interface can call <code>readCallback()</code> after
+any amount of input has been received.
+If the client needs more input, it will call <code>readRequest()</code>
+again.
+</p>
+<p>
+With some bus interfaces, <code>readRequest()</code> might not have to
+do anything because the bus is always receiving.
+It might also be that the bus has no local buffer associated to store
+input before it is fetched with some <code>read()</code> call.
+In this case, a race condition between device and client can occure.
+To avoid loss of data, <code>readCallback(ioSuccess,buffer,size)</code>
+may be called in this case even before <code>readRequest()</code>.
+If the client is expecting input in the next future, it will store it.
+Otherwise the input is dropped.
+</p>
+<p>
+The <code>replyTimeout_ms</code> parameter defines how many milliseconds
+to wait for the first byte of a reply before the device is considered
+offline.
+If no input has been received after <code>replyTimeout_ms</code>
+milliseconds, the bus interface should call
+<code>readCallback(ioNoReply)</code>.
+</p>
+<p>
+The <code>readTimeout_ms</code> parameter is the maximum time to wait
+for further input.
+If input stops for longer than <code>readTimeout_ms</code> milliseconds
+the bus interface should call
+<code>readCallback(ioTimeout,buffer,size)</code>.
+The client decides if this timeout is an error or a legal termination.
+Thus, pass all input received so far.
+</p>
+<p>
+At the start of a communication, the client calls <code>setEOS()</code>
+(i.e. before the first <code>readRequest()</code> is called).
+The <code>eos</code> string is a hint to the bus interface to recognize
+the end of an input.
+Once the <code>eos</code> string is found, the bus interface should stop
+receiving input and call
+<code>readCallback(ioSuccess,buffer,size)</code>.
+It should not try to remove the <code>eos</code> string from the input
+received.
+An empty <code>eos</code> string means: Don't look for eos.
+</p>
+<p>
+Some busses (e.g. GPIB) support special "end of message" signals.
+If such a signal is received, the bus interface should call
+<code>readCallback(ioEnd,buffer,size)</code>.
+Do not use <code>ioEnd</code> just because <code>eos</code> has been
+found!
+Only use it to indicate a special "end of message" signal which is not
+visible in the normal byte data stream.
+</p>
+<p>
+If input is impossible, e.g. because the connection is broken
+or the device is write-only, the interface may call
+<code>readCallback(ioFault)</code>.
+</p>
+
+<h2>Sorry, this documentation is not yet complete.</h2>
 
 <hr>
 <p><small>Dirk Zimoch, 2006</small></p>

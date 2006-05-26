@@ -14,11 +14,11 @@ function show(name) {
     if (m.style.display == "none") {
         if (active != "") { show(active); }
         m.style.display = "block";
-        b.innerHTML="[&minus;]";
+        b.innerHTML="[&laquo;]";
         active=name;
     } else {
         m.style.display = "none";
-        b.innerHTML="[+]";
+        b.innerHTML="[&raquo;]";
         active="";
     }
 }
@@ -29,11 +29,15 @@ function printview() {
 </script>
 <style type="text/css">
 <!--
+body      {margin:0px 0px 0px 0px;
+           font-family:sans-serif;
+           font-weight:bold;
+           font-size:small;}
 a:link    {color:#333333;text-decoration:none;}
 a:visited {color:#333333;text-decoration:none;}
 a:hover   {color:#FF0000;text-decoration:none;}
 a:active  {color:#FF0000;text-decoration:none;}
-.top      {margin-bottom: 10px;
+.top      {margin-bottom: 0px;
            margin-top: 10px;
            border-bottom: solid 1px black;}
 .sub      {margin-left: 10px;
@@ -41,21 +45,17 @@ a:active  {color:#FF0000;text-decoration:none;}
            line-height:120%;}
 .subsub    {margin-left: 15px;
            line-height:120%;
-           font-size:75%;}
+           font-size:80%;}
 h1        {font-size:120%;
            margin-top: 20px;
            margin-right: 20px;
-           margin-bottom: 0px;
+           margin-bottom: 10px;
            color:#267ab8;}
 -->
 </style>
 
 </head>
-<body background="bg.gif"
-    style="margin:0px 0px 0px 0px;
-           font-family:sans-serif;
-           font-weight:bold;
-           font-size:small">
+<body background="bg.gif">
 <p align="center">
 </p>
 <div style="margin-left: 20px;">
@@ -147,9 +147,24 @@ h1        {font-size:120%;
  </div>
  <div class="top">
   <a target="text" href="businterface.html">Bus API</a>
+  <a href="javascript:show('bus')" id="busButton"></a>
+  <div id="bus" class="sub">
+   <a target="text" href="businterface.html#class">Interface Class</a><br>
+   <a target="text" href="businterface.html#theory">Theory of Operation</a><br>
+   <div class="subsub">
+    <a target="text" href="businterface.html#registration">Registration</a><br>
+    <a target="text" href="businterface.html#create">Creation &amp; deletion</a><br>
+    <a target="text" href="businterface.html#lock">Bus locking</a><br>
+    <a target="text" href="businterface.html#write">Writing output</a><br>
+    <a target="text" href="businterface.html#read">Reading input</a><br>
+   </div>
+  </div>
  </div>
  <div class="top">
-  <a target="text" href="converterinterface.html">Converter API</a>
+  <a target="text" href="formatconverter.html">Format Converter API</a>
+ </div>
+ <div class="top">
+  <a target="text" href="osinterface.html">Operating System API</a>
  </div>
 </div>
 <p align="center" style="margin-top:20px;">
@@ -163,7 +178,10 @@ h1        {font-size:120%;
     show('formats');
     show('proc');
     show('records');
--->
+    show('bus');
+    chapter=decodeURIComponent(parent.location.search.substr(1));
+    if (chapter) parent.text.location.href=chapter;
+//-->
 </script>
 </p>
 </body>

@@ -20,7 +20,7 @@
 
 #include "StreamFormatConverter.h"
 #include "StreamError.h"
-#ifdef __vxworks
+#if defined (__vxworks) || defined (vxWorks)
 // vxWorks has no vsnprintf
 #include <epicsString.h>
 #define strncasecmp epicsStrnCaseCmp
@@ -427,7 +427,7 @@ static ulong adler32(const uchar* data, ulong len, ulong init)
 
 struct checksum
 {
-    char* name;
+    const char* name;
     checksumFunc func;
     ulong init;
     ulong xorout;
@@ -458,14 +458,14 @@ static checksum checksumMap[] =
 class StreamChecksumConverter : public StreamFormatConverter
 {
     int parse (const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int print(const StreamFormat&, StreamBuffer&);
-    int scan(const StreamFormat&, StreamBuffer&, long& cursor);
+    int printPseudo(const StreamFormat&, StreamBuffer&);
+    int scanPseudo(const StreamFormat&, StreamBuffer&, long& cursor);
 };
 
 int StreamChecksumConverter::
 parse(const StreamFormat&, StreamBuffer& info, const char*& source, bool)
 {
-    char* p = strchr(source, '>');
+    const char* p = strchr(source, '>');
     if (!p)
     {
         error ("Missing terminating '>' in checksum format.\n");
@@ -484,15 +484,15 @@ parse(const StreamFormat&, StreamBuffer& info, const char*& source, bool)
     }
 
     error ("Unknown checksum algorithm \"%.*s\"\n",
-        p-source, source);
+        static_cast<int>(p-source), source);
     return false;
 }
 
 int StreamChecksumConverter::
-print(const StreamFormat& format, StreamBuffer& output)
+printPseudo(const StreamFormat& format, StreamBuffer& output)
 {
     ulong sum;
-    int fnum = format.info()[0];
+    int fnum = format.info[0];
 
     debug("StreamChecksumConverter %s: output to check: \"%s\"\n",
         checksumMap[fnum].name, output.expand(format.width)());
@@ -542,9 +542,9 @@ print(const StreamFormat& format, StreamBuffer& output)
 }
 
 int StreamChecksumConverter::
-scan(const StreamFormat& format, StreamBuffer& input, long& cursor)
+scanPseudo(const StreamFormat& format, StreamBuffer& input, long& cursor)
 {
-    int fnum = format.info()[0];
+    int fnum = format.info[0];
     ulong sum;
 
     debug("StreamChecksumConverter %s: input to check: \"%s\n",
@@ -582,8 +582,8 @@ scan(const StreamFormat& format, StreamBuffer& input, long& cursor)
             }
             if (inchar != ((sum >> 8*i) & 0xff))
             {
-                error("Input does not match checksum 0x%0*lX\n", 
-                    2*checksumMap[fnum].bytes, sum);
+                error("Input byte 0x%02X does not match checksum 0x%0*lX\n", 
+                    inchar, 2*checksumMap[fnum].bytes, sum);
                 return -1;
             }
         }
@@ -602,8 +602,8 @@ scan(const StreamFormat& format, StreamBuffer& input, long& cursor)
             }
             if (inchar != ((sum >> 8*j) & 0xff))
             {
-                error("Input does not match checksum 0x%0*lX\n",
-                    2*checksumMap[fnum].bytes, sum);
+                error("Input byte 0x%02X does not match checksum 0x%0*lX\n",
+                    inchar, 2*checksumMap[fnum].bytes, sum);
                 return -1;
             }
         }

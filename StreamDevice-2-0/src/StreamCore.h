@@ -110,8 +110,8 @@ protected:
         StreamCore* stream;
 
     public:
-        MutexLock(StreamCore* stream) : stream(stream)
-            { stream->lockMutex(); }
+        MutexLock(StreamCore* _stream) : stream(_stream)
+            { _stream->lockMutex(); }
         ~MutexLock()
             { stream->releaseMutex(); }
     };

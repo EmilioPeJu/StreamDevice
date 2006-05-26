@@ -47,16 +47,7 @@ typedef struct StreamFormat
     short prec;
     unsigned short width;
     unsigned short infolen;
-#ifdef __cplusplus
-    const char* info() const
-        { return reinterpret_cast<const char*>(this+1);}
-#endif
+    const char* info;
 } StreamFormat;
-
-/*
-   In C use this macro instead of info() member but be careful
-   not to use it on anything but StreamFormat structures
-*/
-#define StreamFormatInfoString(f) ((const char*)(&(f)+1))
 
 #endif

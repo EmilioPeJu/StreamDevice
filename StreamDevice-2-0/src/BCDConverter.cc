@@ -26,8 +26,8 @@
 class StreamBCDConverter : public StreamFormatConverter
 {
     int parse (const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int print(const StreamFormat&, StreamBuffer&, long);
-    int scan(const StreamFormat&, const char*, long&);
+    int printLong(const StreamFormat&, StreamBuffer&, long);
+    int scanLong(const StreamFormat&, const char*, long&);
 };
 
 int StreamBCDConverter::
@@ -37,18 +37,18 @@ parse(const StreamFormat&, StreamBuffer&, const char*&, bool)
 }
 
 int StreamBCDConverter::
-print(const StreamFormat& format, StreamBuffer& output, long value)
+printLong(const StreamFormat& fmt, StreamBuffer& output, long value)
 {
     unsigned char bcd[6]={0,0,0,0,0,0}; // sufficient for 2^32
     int i;
-    int prec = format.prec; // number of nibbles
+    int prec = fmt.prec; // number of nibbles
     if (prec == -1)
     {
         prec = 2 * sizeof (value);
     }
-    int width = (prec + (format.flags & sign_flag ? 2 : 1)) / 2;
-    if (format.width > width) width = format.width;
-    if (format.flags & sign_flag && value < 0)
+    int width = (prec + (fmt.flags & sign_flag ? 2 : 1)) / 2;
+    if (fmt.width > width) width = fmt.width;
+    if (fmt.flags & sign_flag && value < 0)
     {
         // negative BCD value, I hope "F" as "-" is OK
         bcd[5] = 0xF0;
@@ -60,7 +60,7 @@ print(const StreamFormat& format, StreamBuffer& output, long value)
         bcd[i/2] |= (value % 10) << (4 * (i & 1));
         value /= 10;
     }
-    if (format.flags & alt_flag)
+    if (fmt.flags & alt_flag)
     {
         // least significant byte first (little endian)
         for (i = 0; i < (prec + 1) / 2; i++)
@@ -91,14 +91,14 @@ print(const StreamFormat& format, StreamBuffer& output, long value)
 }
 
 int StreamBCDConverter::
-scan(const StreamFormat& format, const char* input, long& value)
+scanLong(const StreamFormat& fmt, const char* input, long& value)
 {
     int length = 0;
     int val = 0;
     unsigned char bcd1, bcd10;
-    int width = format.width;
+    int width = fmt.width;
     if (width == 0) width = 1;
-    if (format.flags & alt_flag)
+    if (fmt.flags & alt_flag)
     {
         // little endian
         int shift = 1;
@@ -108,7 +108,7 @@ scan(const StreamFormat& format, const char* input, long& value)
             bcd1 &= 0x0F;
             bcd10 >>= 4;
             if (bcd1 > 9 || shift * bcd1 < bcd1) break;
-            if (width == 0 && format.flags & sign_flag)
+            if (width == 0 && fmt.flags & sign_flag)
             {
                 val += bcd1 * shift;
                 if (bcd10 != 0) val = -val;
@@ -130,7 +130,7 @@ scan(const StreamFormat& format, const char* input, long& value)
             bcd1 = bcd10 = (unsigned char) input[length];
             bcd1 &= 0x0F;
             bcd10 >>= 4;
-            if (length == 0 && format.flags & sign_flag && bcd10)
+            if (length == 0 && fmt.flags & sign_flag && bcd10)
             {
                 sign = -1;
                 bcd10 = 0;
@@ -148,6 +148,7 @@ scan(const StreamFormat& format, const char* input, long& value)
         val *= sign;
     }
     if (length == 0) return -1;
+    value = val;
     return length;
 }
 

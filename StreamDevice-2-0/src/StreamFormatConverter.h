@@ -20,10 +20,20 @@
 #ifndef StreamFormatConverter_h
 #define StreamFormatConverter_h
 
-#define esc (0x1b)
-
 #include "StreamFormat.h"
 #include "StreamBuffer.h"
+
+#define esc (0x1b)
+
+template <class C>
+class StreamFormatConverterRegistrar
+{
+public:
+    StreamFormatConverterRegistrar(const char* provided) {
+        static C prototype;
+        prototype.provides(provided);
+    }
+};
 
 class StreamFormatConverter
 {
@@ -31,32 +41,36 @@ class StreamFormatConverter
 
 public:
 
-    template <class C>
-    class Registrar
-    {
-    public:
-        Registrar(const char* provided) {
-            static C prototype;
-            prototype.provides(provided);
-        }
-    };
-
     void provides(const char* provided);
-    static StreamFormatConverter* find(unsigned char c) { return registered[c]; }
-    virtual int parse(const StreamFormat& format, StreamBuffer& info, const char*& source, bool scanFormat) = 0;
-    virtual int print(const StreamFormat& format, StreamBuffer& output, long value);
-    virtual int print(const StreamFormat& format, StreamBuffer& output, double value);
-    virtual int print(const StreamFormat& format, StreamBuffer& output, const char* value);
-    virtual int print(const StreamFormat& format, StreamBuffer& output);
-    virtual int scan(const StreamFormat& format, const char* input, long& value);
-    virtual int scan(const StreamFormat& format, const char* input, double& value);
-    virtual int scan(const StreamFormat& format, const char* input, char* value, size_t maxlen);
-    virtual int scan(const StreamFormat& format, StreamBuffer& inputLine, long& cursor);
+    static StreamFormatConverter* find(unsigned char c);
+    virtual int parse(const StreamFormat& fmt,
+        StreamBuffer& info, const char*& source, bool scanFormat) = 0;
+    virtual int printLong(const StreamFormat& fmt,
+        StreamBuffer& output, long value);
+    virtual int printDouble(const StreamFormat& fmt,
+        StreamBuffer& output, double value);
+    virtual int printString(const StreamFormat& fmt,
+        StreamBuffer& output, const char* value);
+    virtual int printPseudo(const StreamFormat& fmt,
+        StreamBuffer& output);
+    virtual int scanLong(const StreamFormat& fmt,
+        const char* input, long& value);
+    virtual int scanDouble(const StreamFormat& fmt,
+        const char* input, double& value);
+    virtual int scanString(const StreamFormat& fmt,
+        const char* input, char* value, size_t maxlen);
+    virtual int scanPseudo(const StreamFormat& fmt,
+        StreamBuffer& inputLine, long& cursor);
 };
 
+inline StreamFormatConverter* StreamFormatConverter::
+find(unsigned char c) {
+    return registered[c];
+}
+
 #define RegisterConverter(converter, conversions) \
-template class StreamFormatConverter::Registrar<converter>; \
-static StreamFormatConverter::Registrar<converter> \
+template class StreamFormatConverterRegistrar<converter>; \
+static StreamFormatConverterRegistrar<converter> \
 registrar_converter_##converter(conversions)
 
 /****************************************************************************
@@ -69,7 +83,7 @@ registrar_converter_##converter(conversions)
 * =======
 * This function is called when the protocol is parsed (at initialisation)
 * whenever one of the conversions handled by your converter is found.
-* The fields format.conv, format.flags, format.prec, and format.width have
+* The fields fmt.conv, fmt.flags, fmt.prec, and fmt.width have
 * already been filled in. If a scan format is parsed, scanFormat is true. If
 * a print format is parsed, scanFormat is false.
 *
@@ -88,7 +102,7 @@ registrar_converter_##converter(conversions)
 *   conversion
 *   character
 *
-* You can write any string to info you need in print() or scan(). This will
+* You can write any string to info you need in print*() or scan*(). This will
 * probably be necessary if you have taken characters from the format string.
 *
 * Return long_format, double_format, string_format, or enum_format
@@ -104,23 +118,23 @@ registrar_converter_##converter(conversions)
 * Return false if there is any parse error or if print or scan is requested
 * but not supported by this conversion.
 *
-* printf(), scanf()
+* print[Long|Double|String|Pseudo](), scan[Long|Double|String|Pseudo]()
 * =================
-* Provide a print() and/or scan() method appropriate for the data type
+* Provide a print*() and/or scan*() method appropriate for the data type
 * you have returned in the parse() method. That method is called whenever
 * the conversion appears in an output or input, resp.
 * You only need to implement the flavour of print and/or scan suitable for
 * the datatype returned by parse().
 *
-* Now, format.type contains the value returned by parse(). With format.info()
+* Now, fmt.type contains the value returned by parse(). With fmt.info()
 * you will get the string you have written to info in parse() (null terminated).
-* The length of the info string can be found in format.infolen.
+* The length of the info string can be found in fmt.infolen.
 *
-* In printf(), append the converted value to output. Do not modify what is
+* In print*(), append the converted value to output. Do not modify what is
 * already in output (unless you really know what you're doing).
 * Return true on success, false on failure.
 *
-* In scanf(), read the value from input and return the number of consumed
+* In scan*(), read the value from input and return the number of consumed
 * bytes. In the string version, don't write more bytes than maxlen! If the
 * skip_flag is set, you don't need to write to value, since the value will be
 * discarded anyway. Return -1 on failure.

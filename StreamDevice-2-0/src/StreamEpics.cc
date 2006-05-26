@@ -44,7 +44,7 @@
 
 #include <epicsExport.h>
 
-#ifdef __vxworks
+#if defined(__vxworks) || defined(vxWorks)
 #include <symLib.h>
 #include <sysSymTbl.h>
 #endif
@@ -52,13 +52,15 @@
 enum MoreFlags {
     // 0x0000FFFF used by StreamCore
     InDestructor  = 0x0001000,
-    ValueReceived = 0x0002000,
+    ValueReceived = 0x0002000
 };
+
+extern "C" void streamExecuteCommand(CALLBACK *pcallback);
 
 class Stream : protected StreamCore, epicsTimerNotify
 {
     dbCommon* record;
-    link *ioLink;
+    struct link *ioLink;
     streamIoFunction readData;
     streamIoFunction writeData;
     epicsTimerQueueActive* timerQueue;
@@ -89,7 +91,7 @@ class Stream : protected StreamCore, epicsTimerNotify
     void lockMutex();
     void releaseMutex();
     bool execute();
-    static void executeCommand(CALLBACK *pcallback);
+    friend void streamExecuteCommand(CALLBACK *pcallback);
 
 // Stream Epics methods
     long initRecord();
@@ -188,7 +190,7 @@ static const iocshArg * const streamReloadArgs[] =
 static const iocshFuncDef reloadDef =
     { "streamReload", 1, streamReloadArgs };
 
-static void reloadFunc (const iocshArgBuf *args)
+extern "C" void streamReloadFunc (const iocshArgBuf *args)
 {
     streamReload(args[0].sval);
 }
@@ -198,7 +200,7 @@ static void streamRegistrar ()
 #ifdef MEMGUARD
     iocshRegister(&memguardReportDef, memguardReportFunc);
 #endif
-    iocshRegister(&reloadDef, reloadFunc);
+    iocshRegister(&reloadDef, streamReloadFunc);
     // make streamReload available for subroutine records
     registryFunctionAdd("streamReload",
         (REGISTRYFUNCTION)streamReloadSub);
@@ -234,21 +236,21 @@ report(int interest)
         ++interface;
     }
     if (interest < 1) return OK;
-    Stream* stream;
+    Stream* pstream;
     printf("  connected records:\n");
-    for (stream = static_cast<Stream*>(first); stream;
-        stream = static_cast<Stream*>(stream->next))
+    for (pstream = static_cast<Stream*>(first); pstream;
+        pstream = static_cast<Stream*>(pstream->next))
     {
         if (interest == 2)
         {
-            printf("\n%s: %s\n", stream->name(),
-                stream->ioLink->value.instio.string);
-            stream->printProtocol();
+            printf("\n%s: %s\n", pstream->name(),
+                pstream->ioLink->value.instio.string);
+            pstream->printProtocol();
         }
         else
         {
-            printf("    %s: %s\n", stream->name(),
-                stream->ioLink->value.instio.string);
+            printf("    %s: %s\n", pstream->name(),
+                pstream->ioLink->value.instio.string);
         }
     }
     return OK;
@@ -292,7 +294,10 @@ drvInit()
 
 long streamInit(int after)
 {
-    StreamProtocolParser::free();
+    if (after)
+    {
+        StreamProtocolParser::free();
+    }
     return OK;
 }
 
@@ -301,59 +306,59 @@ long streamInitRecord(dbCommon* record, struct link *ioLink,
 {
     debug("streamInitRecord(%s): SEVR=%d\n", record->name, record->sevr);
     IOSCANPVT ioscanpvt = NULL;
-    Stream* stream = (Stream*)record->dpvt;
+    Stream* pstream = (Stream*)record->dpvt;
     record->dpvt = NULL;
-    if (stream)
+    if (pstream)
     {
         // we have been called by streamReload
         // keep old ioscanpvt
         // but delete old stream
-        ioscanpvt = stream->ioscanpvt;
-        if (record->pact) stream->finishProtocol(Stream::Abort);
-        stream->ioscanpvt = NULL;
+        ioscanpvt = pstream->ioscanpvt;
+        if (record->pact) pstream->finishProtocol(Stream::Abort);
+        pstream->ioscanpvt = NULL;
         debug("streamInitRecord(%s): deleting old stream. ioscanpvt=%p\n",
             record->name, ioscanpvt);
-        delete stream;
+        delete pstream;
     }
     debug("streamInitRecord(%s): creating new stream (ioscanpvt=%p)\n",
         record->name, ioscanpvt);
-    stream = new Stream(record, ioLink, readData, writeData, ioscanpvt);
-    long status = stream->initRecord();
+    pstream = new Stream(record, ioLink, readData, writeData, ioscanpvt);
+    long status = pstream->initRecord();
     if (status != OK && status != DO_NOT_CONVERT)
     {
         error("%s: streamInitRecord failed\n", record->name);
-        delete stream;
+        delete pstream;
         debug("streamInitRecord(%s): stream object deleted\n",
             record->name);
         return status;
     }
-    record->dpvt = stream;
+    record->dpvt = pstream;
     return status;
 }
 
 long streamReadWrite(dbCommon *record)
 {
-    Stream* stream = (Stream*)record->dpvt;
-    if (!stream || stream->status == ERROR)
+    Stream* pstream = (Stream*)record->dpvt;
+    if (!pstream || pstream->status == ERROR)
     {
         (void) recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
         error("%s: Record not initialised correctly\n", record->name);
         return ERROR;
     }
-    return stream->process() ? stream->convert : ERROR;
+    return pstream->process() ? pstream->convert : ERROR;
 }
 
 long streamGetIointInfo(int cmd, dbCommon *record, IOSCANPVT *ppvt)
 {
     debug("streamGetIointInfo(%s,cmd=%d)\n",
         record->name, cmd);
-    Stream* stream = (Stream*)record->dpvt;
-    if (!stream) return ERROR;
-    *ppvt = stream->ioscanpvt;
+    Stream* pstream = (Stream*)record->dpvt;
+    if (!pstream) return ERROR;
+    *ppvt = pstream->ioscanpvt;
     if (cmd == 0)
     {
         /* SCAN has been set to "I/O Intr" */
-        if (!stream->startProtocol(Stream::StartAsync))
+        if (!pstream->startProtocol(Stream::StartAsync))
         {
             error("%s: Can't start \"I/O Intr\" protocol\n",
                 record->name);
@@ -363,7 +368,7 @@ long streamGetIointInfo(int cmd, dbCommon *record, IOSCANPVT *ppvt)
     else
     {
         /* SCAN is no longer "I/O Intr" */
-        stream->finishProtocol(Stream::Abort);
+        pstream->finishProtocol(Stream::Abort);
     }
     return OK;
 }
@@ -372,11 +377,11 @@ long streamPrintf(dbCommon *record, format_t *format, ...)
 {
     debug("streamPrintf(%s,format=%%%c)\n",
         record->name, format->priv->conv);
-    Stream* stream = (Stream*)record->dpvt;
-    if (!stream) return ERROR;
+    Stream* pstream = (Stream*)record->dpvt;
+    if (!pstream) return ERROR;
     va_list ap;
     va_start(ap, format);
-    bool success = stream->print(format, ap);
+    bool success = pstream->print(format, ap);
     va_end(ap);
     return success ? OK : ERROR;
 }
@@ -385,9 +390,9 @@ long streamScanSep(dbCommon* record)
 {
     // depreciated
     debug("streamScanSep(%s)\n", record->name);
-    Stream* stream = (Stream*)record->dpvt;
-    if (!stream) return ERROR;
-    return stream->scanSeparator() ? OK : ERROR;
+    Stream* pstream = (Stream*)record->dpvt;
+    if (!pstream) return ERROR;
+    return pstream->scanSeparator() ? OK : ERROR;
 }
 
 long streamScanfN(dbCommon* record, format_t *format,
@@ -395,24 +400,26 @@ long streamScanfN(dbCommon* record, format_t *format,
 {
     debug("streamScanfN(%s,format=%%%c,maxStringSize=%d)\n",
         record->name, format->priv->conv, maxStringSize);
-    Stream* stream = (Stream*)record->dpvt;
-    if (!stream) return ERROR;
-    if (!stream->scan(format, value, maxStringSize))
+    Stream* pstream = (Stream*)record->dpvt;
+    if (!pstream) return ERROR;
+    if (!pstream->scan(format, value, maxStringSize))
     {
         return ERROR;
     }
+#ifndef NO_TEMPORARY
     debug("streamScanfN(%s) success, value=\"%s\"\n",
-        record->name, static_cast<char*>(value));
+        record->name, StreamBuffer((char*)value).expand()());
+#endif
     return OK;
 }
 
 // Stream methods ////////////////////////////////////////////////////////
 
 Stream::
-Stream(dbCommon* record, struct link *ioLink,
+Stream(dbCommon* _record, struct link *ioLink,
     streamIoFunction readData, streamIoFunction writeData,
     IOSCANPVT ioscanpvt)
-:record(record), ioLink(ioLink), readData(readData), writeData(writeData),
+:record(_record), ioLink(ioLink), readData(readData), writeData(writeData),
     ioscanpvt(ioscanpvt)
 {
     streamname = record->name;
@@ -425,6 +432,7 @@ Stream(dbCommon* record, struct link *ioLink,
 Stream::
 ~Stream()
 {
+    debug ("Stream destructor\n");
     flags |= InDestructor;;
     debug("~Stream(%s)\n", name());
     if (record->dpvt)
@@ -918,21 +926,10 @@ noMoreElements:
     return true;
 }
 
-bool Stream::
-execute()
-{
-    callbackSetCallback(executeCommand, &commandCallback);
-    callbackSetUser(priority(), &commandCallback);
-    callbackSetUser(this, &commandCallback);
-    callbackRequest(&commandCallback);
-    return true;
-}
-
 // There is no header file for this
 extern "C" int iocshCmd (const char *cmd);
 
-void Stream::
-executeCommand(CALLBACK *pcallback)
+extern "C" void streamExecuteCommand(CALLBACK *pcallback)
 {
     Stream* pstream = static_cast<Stream*>(pcallback->user);
     
@@ -944,6 +941,16 @@ executeCommand(CALLBACK *pcallback)
     {
         pstream->execCallback(StreamBusInterface::ioSuccess);
     }
+}
+
+bool Stream::
+execute()
+{
+    callbackSetCallback(streamExecuteCommand, &commandCallback);
+    callbackSetUser(priority(), &commandCallback);
+    callbackSetUser(this, &commandCallback);
+    callbackRequest(&commandCallback);
+    return true;
 }
 
 void Stream::

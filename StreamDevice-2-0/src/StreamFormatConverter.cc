@@ -19,15 +19,12 @@
 *                                                              *
 ***************************************************************/
 
-#include <stdio.h>
 #include "StreamFormatConverter.h"
 #include "StreamFormat.h"
 #include "StreamError.h"
 
 StreamFormatConverter* StreamFormatConverter::
 registered [256];
-
-#define esc (0x1b)
 
 void StreamFormatConverter::
 provides(const char* provided)
@@ -41,58 +38,66 @@ provides(const char* provided)
 }
 
 int StreamFormatConverter::
-print(const StreamFormat&, StreamBuffer&, long)
+printLong(const StreamFormat& fmt, StreamBuffer&, long)
 {
-    error("Unimplemented long value print method\n");
+    error("Unimplemented printLong method\n for %%%c format",
+        fmt.conv);
     return false;
 }
 
 int StreamFormatConverter::
-print(const StreamFormat&, StreamBuffer&, double)
+printDouble(const StreamFormat& fmt, StreamBuffer&, double)
 {
-    error("Unimplemented double value print method\n");
+    error("Unimplemented printDouble method for %%%c format\n",
+        fmt.conv);
     return false;
 }
 
 int StreamFormatConverter::
-print(const StreamFormat&, StreamBuffer&, const char*)
+printString(const StreamFormat& fmt, StreamBuffer&, const char*)
 {
-    error("Unimplemented string value print method\n");
+    error("Unimplemented printString method for %%%c format\n",
+        fmt.conv);
     return false;
 }
 
 int StreamFormatConverter::
-print(const StreamFormat&, StreamBuffer&)
+printPseudo(const StreamFormat& fmt, StreamBuffer&)
 {
-    error("Unimplemented pseudo value print method\n");
+    error("Unimplemented printPseudo method for %%%c format\n",
+        fmt.conv);
     return false;
 }
 
 int StreamFormatConverter::
-scan(const StreamFormat&, const char*, long&)
+scanLong(const StreamFormat& fmt, const char*, long&)
 {
-    error("Unimplemented long value scan method\n");
+    error("Unimplemented scanLong method for %%%c format\n",
+        fmt.conv);
     return -1;
 }
 
 int StreamFormatConverter::
-scan(const StreamFormat&, const char*, double&)
+scanDouble(const StreamFormat& fmt, const char*, double&)
 {
-    error("Unimplemented double value scan method\n");
+    error("Unimplemented scanDouble method for %%%c format\n",
+        fmt.conv);
     return -1;
 }
 
 int StreamFormatConverter::
-scan(const StreamFormat&, const char*, char*, size_t)
+scanString(const StreamFormat& fmt, const char*, char*, size_t)
 {
-    error("Unimplemented string value scan method\n");
+    error("Unimplemented scanString method for %%%c format\n",
+        fmt.conv);
     return -1;
 }
 
 int StreamFormatConverter::
-scan(const StreamFormat&, StreamBuffer&, long&)
+scanPseudo(const StreamFormat& fmt, StreamBuffer&, long&)
 {
-    error("Unimplemented pseudo value scan method\n");
+    error("Unimplemented scanPseudo method for %%%c format\n",
+        fmt.conv);
     return -1;
 }
 
@@ -108,41 +113,41 @@ static void copyFormatString(StreamBuffer& info, const char* source)
 
 class StreamStdLongConverter : public StreamFormatConverter
 {
-    int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int print(const StreamFormat&, StreamBuffer&, long);
-    int scan(const StreamFormat&, const char*, long&);
+    int parse(const StreamFormat& fmt, StreamBuffer& output, const char*& value, bool scanFormat);
+    int printLong(const StreamFormat& fmt, StreamBuffer& output, long value);
+    int scanLong(const StreamFormat& fmt, const char* input, long& value);
 };
 
 int StreamStdLongConverter::
-parse(const StreamFormat& format, StreamBuffer& info,
+parse(const StreamFormat& fmt, StreamBuffer& info,
     const char*& source, bool scanFormat)
 {
-    if (scanFormat && (format.flags & alt_flag)) return false;
+    if (scanFormat && (fmt.flags & alt_flag)) return false;
     copyFormatString(info, source);
     info.append('l');
-    info.append(format.conv);
+    info.append(fmt.conv);
     if (scanFormat) info.append("%n");
     return long_format;
 }
 
 int StreamStdLongConverter::
-print(const StreamFormat& format, StreamBuffer& output, long value)
+printLong(const StreamFormat& fmt, StreamBuffer& output, long value)
 {
-    output.printf(format.info(), value);
+    output.printf(fmt.info, value);
     return true;
 }
 
 int StreamStdLongConverter::
-scan(const StreamFormat& format, const char* input, long& value)
+scanLong(const StreamFormat& fmt, const char* input, long& value)
 {
     int length = -1;
-    if (format.flags & skip_flag)
+    if (fmt.flags & skip_flag)
     {
-        if (sscanf(input, format.info(), &length) < 0) return -1;
+        if (sscanf(input, fmt.info, &length) < 0) return -1;
     }
     else
     {
-        if (sscanf(input, format.info(), &value, &length) < 1) return -1;
+        if (sscanf(input, fmt.info, &value, &length) < 1) return -1;
     }
     return length;
 }
@@ -153,46 +158,46 @@ RegisterConverter (StreamStdLongConverter, "diouxX");
 
 class StreamStdDoubleConverter : public StreamFormatConverter
 {
-    int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int print(const StreamFormat&, StreamBuffer&, double);
-    int scan(const StreamFormat&, const char*, double&);
+    virtual int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
+    virtual int printDouble(const StreamFormat&, StreamBuffer&, double);
+    virtual int scanDouble(const StreamFormat&, const char*, double&);
 };
 
 int StreamStdDoubleConverter::
-parse(const StreamFormat& format, StreamBuffer& info,
+parse(const StreamFormat& fmt, StreamBuffer& info,
     const char*& source, bool scanFormat)
 {
-    if (scanFormat && (format.flags & alt_flag))
+    if (scanFormat && (fmt.flags & alt_flag))
     {
         error("Use of modifier '#' not allowed with %%%c input conversion\n",
-            format.conv);
+            fmt.conv);
         return false;
     }
     copyFormatString(info, source);
     if (scanFormat) info.append('l');
-    info.append(format.conv);
+    info.append(fmt.conv);
     if (scanFormat) info.append("%n");
     return double_format;
 }
 
 int StreamStdDoubleConverter::
-print(const StreamFormat& format, StreamBuffer& output, double value)
+printDouble(const StreamFormat& fmt, StreamBuffer& output, double value)
 {
-    output.printf(format.info(), value);
+    output.printf(fmt.info, value);
     return true;
 }
 
 int StreamStdDoubleConverter::
-scan(const StreamFormat& format, const char* input, double& value)
+scanDouble(const StreamFormat& fmt, const char* input, double& value)
 {
     int length = -1;
-    if (format.flags & skip_flag)
+    if (fmt.flags & skip_flag)
     {
-        if (sscanf(input, format.info(), &length) < 0) return -1;
+        if (sscanf(input, fmt.info, &length) < 0) return -1;
     }
     else
     {
-        if (sscanf(input, format.info(), &value, &length) < 1) return -1;
+        if (sscanf(input, fmt.info, &value, &length) < 1) return -1;
     }
     return length;
 }
@@ -203,37 +208,37 @@ RegisterConverter (StreamStdDoubleConverter, "feEgG");
 
 class StreamStdStringConverter : public StreamFormatConverter
 {
-    int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int print(const StreamFormat&, StreamBuffer&, const char*);
-    int scan(const StreamFormat&, const char*, char*, size_t);
+    virtual int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
+    virtual int printString(const StreamFormat&, StreamBuffer&, const char*);
+    virtual int scanString(const StreamFormat&, const char*, char*, size_t);
 };
 
 int StreamStdStringConverter::
-parse(const StreamFormat& format, StreamBuffer& info,
+parse(const StreamFormat& fmt, StreamBuffer& info,
     const char*& source, bool scanFormat)
 {
-    if (format.flags & (sign_flag|space_flag|zero_flag|alt_flag))
+    if (fmt.flags & (sign_flag|space_flag|zero_flag|alt_flag))
     {
         error("Use of modifiers '+', ' ', '0', '#' "
             "not allowed with %%%c conversion\n",
-            format.conv);
+            fmt.conv);
         return false;
     }
     copyFormatString(info, source);
-    info.append(format.conv);
+    info.append(fmt.conv);
     if (scanFormat) info.append("%n");
     return string_format;
 }
 
 int StreamStdStringConverter::
-print(const StreamFormat& format, StreamBuffer& output, const char* value)
+printString(const StreamFormat& fmt, StreamBuffer& output, const char* value)
 {
-    output.printf(format.info(), value);
+    output.printf(fmt.info, value);
     return true;
 }
 
 int StreamStdStringConverter::
-scan(const StreamFormat& format, const char* input,
+scanString(const StreamFormat& fmt, const char* input,
     char* value, size_t maxlen)
 {
     int length = -1;
@@ -243,29 +248,31 @@ scan(const StreamFormat& format, const char* input,
         value[0] = '\0';
         return 0;
     }
-    if (format.flags & skip_flag)
+    if (fmt.flags & skip_flag)
     {
-        if (sscanf(input, format.info(), &length) < 0) return -1;
+        if (sscanf(input, fmt.info, &length) < 0) return -1;
     }
     else
     {
         char tmpformat[10];
-        const char* fmt;
-        if (maxlen <= format.width || format.width == 0)
+        const char* f;
+        if (maxlen <= fmt.width || fmt.width == 0)
         {
             // assure not to read too much
-            sprintf(tmpformat, "%%%d%c%%n", maxlen-1, format.conv);
-            fmt = tmpformat;
+            sprintf(tmpformat, "%%%d%c%%n", maxlen-1, fmt.conv);
+            f = tmpformat;
         }
         else
         {
-            fmt = format.info();
+            f = fmt.info;
         }
-        if (sscanf(input, fmt, value, &length) < 1) return -1;
+        if (sscanf(input, f, value, &length) < 1) return -1;
         if (length < 0) return -1;
         value[length] = '\0';
-        debug("StreamStdStringConverter::scan: length=%d, value=%s\n",
-            length, value);
+#ifndef NO_TEMPORARY
+        debug("StreamStdStringConverter::scanString: length=%d, value=%s\n",
+            length, StreamBuffer(value,length).expand()());
+#endif
     }
     return length;
 }
@@ -276,50 +283,52 @@ RegisterConverter (StreamStdStringConverter, "s");
 
 class StreamStdCharsConverter : public StreamStdStringConverter
 {
-    int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int print(const StreamFormat&, StreamBuffer&, long);
-    // scan is inherited from %s format
+    virtual int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
+    virtual int printLong(const StreamFormat&, StreamBuffer&, long);
+    // scanString is inherited from %s format
 };
 
 int StreamStdCharsConverter::
-parse(const StreamFormat& format, StreamBuffer& info,
+parse(const StreamFormat& fmt, StreamBuffer& info,
     const char*& source, bool scanFormat)
 {
-    if (format.flags & (sign_flag|space_flag|zero_flag|alt_flag))
+    if (fmt.flags & (sign_flag|space_flag|zero_flag|alt_flag))
     {
         error("Use of modifiers '+', ' ', '0', '#' "
             "not allowed with %%%c conversion\n",
-            format.conv);
+            fmt.conv);
         return false;
     }
     copyFormatString(info, source);
-    info.append(format.conv);
+    info.append(fmt.conv);
     if (scanFormat)
-    {   info.append("%n");
+    {
+        info.append("%n");
         return string_format;
     }
     return long_format;
 }
 
 int StreamStdCharsConverter::
-print(const StreamFormat& format, StreamBuffer& output, long value)
+printLong(const StreamFormat& fmt, StreamBuffer& output, long value)
 {
-    output.printf(format.info(), value);
+    output.printf(fmt.info, value);
     return true;
 }
 
 RegisterConverter (StreamStdCharsConverter, "c");
 
-// Standard Charset Converter for '[' (input only)
+// Standard Charset Converter for '['
 
 class StreamStdCharsetConverter : public StreamFormatConverter
 {
-    int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int scan(const StreamFormat&, const char*, char*, size_t);
+    virtual int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
+    virtual int scanString(const StreamFormat&, const char*, char*, size_t);
+    // no print method, %[ is readonly
 };
 
 int StreamStdCharsetConverter::
-parse(const StreamFormat& format, StreamBuffer& info,
+parse(const StreamFormat& fmt, StreamBuffer& info,
     const char*& source, bool scanFormat)
 {
     if (!scanFormat)
@@ -327,15 +336,15 @@ parse(const StreamFormat& format, StreamBuffer& info,
         error("Format conversion %%[ is only allowed in input formats\n");
         return false;
     }
-    if (format.flags & (left_flag|sign_flag|space_flag|zero_flag|alt_flag))
+    if (fmt.flags & (left_flag|sign_flag|space_flag|zero_flag|alt_flag))
     {
         error("Use of modifiers '-', '+', ' ', '0', '#'"
             "not allowed with %%%c conversion\n",
-            format.conv);
+            fmt.conv);
         return false;
     }
-    info.printf("%%%d[", format.width);
-    while (*source || *source != ']')
+    info.printf("%%%d[", fmt.width);
+    while (*source && *source != ']')
     {
         if (*source == esc) source++;
         info.append(*source++);
@@ -344,38 +353,39 @@ parse(const StreamFormat& format, StreamBuffer& info,
         error("Missing ']' after %%[ format conversion\n");
         return false;
     }
+    source++; // consume ']'
     info.append("]%n");
     return string_format;
 }
 
 int StreamStdCharsetConverter::
-scan(const StreamFormat& format, const char* input,
+scanString(const StreamFormat& fmt, const char* input,
     char* value, size_t maxlen)
 {
     int length = -1;
-    if (format.flags & skip_flag)
+    if (fmt.flags & skip_flag)
     {
-        if (sscanf (input, format.info(), &length) < 0) return -1;
+        if (sscanf (input, fmt.info, &length) < 0) return -1;
     }
     else
     {
         char tmpformat[256];
-        const char* fmt;
-        if (maxlen <= format.width || format.width == 0)
+        const char* f;
+        if (maxlen <= fmt.width || fmt.width == 0)
         {
-            char *p = strchr (format.info(), '[');
+            const char *p = strchr (fmt.info, '[');
             // assure not to read too much
-            sprintf(tmpformat, "%%%d%s%%n", maxlen-1, p);
-            fmt = tmpformat;
+            sprintf(tmpformat, "%%%d%s", maxlen-1, p);
+            f = tmpformat;
         }
         else
         {
-            fmt = format.info();
+            f = fmt.info;
         }
-        if (sscanf(input, fmt, value, &length) < 1) return -1;
+        if (sscanf(input, f, value, &length) < 1) return -1;
         if (length < 0) return -1;
         value[length] = '\0';
-        debug("StreamStdCharsetConverter::scan: length=%d, value=%s\n",
+        debug("StreamStdCharsetConverter::scanString: length=%d, value=%s\n",
             length, value);
     }
     return length;

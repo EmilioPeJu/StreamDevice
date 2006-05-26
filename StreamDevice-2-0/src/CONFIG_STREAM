@@ -1,5 +1,11 @@
 # Do you have asynDriver? Which version?
-ASYN_VERS=4-3
+# For new versions of asyn try setting  ASYN_COMPAT_*
+# and check compatibility.
+ASYN_VERS = 4-3
+
+#Is a version of asynDriver compatible to some older version?
+ASYN_COMPAT_4-4 = 4-3
+ASYN_COMPAT_4-5 = 4-3
 
 # You may add more record interfaces
 # This requires the naming conventions
@@ -17,11 +23,10 @@ RECORDS += Calcout
 # You may add more bus interfaces
 # This requires the naming conventions
 # $(BUS)Interface.cc
+# asynDriver interface is added automatically
+# if ASYN_VERS is defined.
 
-ifdef ASYN_VERS
-BUSSES += AsynDriver$(ASYN_VERS)
-endif
-BUSSES += Debug
+# BUSSES += Debug
 
 # You may add more format converters
 # $(FORMAT)Converter.cc

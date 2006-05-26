@@ -18,12 +18,12 @@
 *                                                              *
 ***************************************************************/
 
-#include "StreamProtocol.h"
-#include "StreamFormatConverter.h"
-#include "StreamError.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include "StreamProtocol.h"
+#include "StreamFormatConverter.h"
+#include "StreamError.h"
 
 class StreamProtocolParser::Protocol::Variable
 {
@@ -45,11 +45,11 @@ class StreamProtocolParser::Protocol::Variable
 // StreamProtocolParser
 
 StreamProtocolParser* StreamProtocolParser::parsers = NULL;
-char* StreamProtocolParser::path = ".";
+const char* StreamProtocolParser::path = ".";
 static const char* specialChars = " ,;{}=()$'\"+-*/";
 
 // Private constructor
-inline StreamProtocolParser::
+StreamProtocolParser::
 StreamProtocolParser(FILE* file, const char* filename)
     : filename(filename), file(file), globalSettings(filename)
 {
@@ -64,7 +64,7 @@ StreamProtocolParser(FILE* file, const char* filename)
 }
 
 // Private destructor
-inline StreamProtocolParser::
+StreamProtocolParser::
 ~StreamProtocolParser()
 {
     delete protocols;
@@ -164,8 +164,8 @@ readFile(const char* filename)
     const char dirseparator = '/';
 #endif
     StreamProtocolParser* parser;
-    char *p;
-    char *s;
+    const char *p;
+    const char *s;
     size_t n;
     StreamBuffer dir;
 
@@ -391,7 +391,7 @@ parseProtocol(Protocol& protocol, StreamBuffer* commands)
         // must be a command (validity will be checked later)
         commands->append(token); // is null separated
         ungetc(op, file); // put back first char of value
-        if (parseValue(*commands, protocol, true) == false)
+        if (parseValue(*commands, true) == false)
         {
             line = startline;
             errorMsg("after command '%s'\n", token());
@@ -571,13 +571,13 @@ parseAssignment(const char* name, Protocol& protocol)
 {
     StreamBuffer value;
 
-    if (!parseValue (value, protocol)) return false;
+    if (!parseValue (value)) return false;
     *protocol.createVariable(name, line) = value;  // transfer value
     return true;
 }
 
 bool StreamProtocolParser::
-parseValue(StreamBuffer& buffer, Protocol& protocol, bool lazy)
+parseValue(StreamBuffer& buffer, bool lazy)
 {
     long token;
     int c;
@@ -687,10 +687,36 @@ format:         {
 }
 
 //////////////////////////////////////////////////////////////////////////////
+// StreamProtocolParser::Protocol::Variable
+
+StreamProtocolParser::Protocol::Variable::
+Variable(const char* name, int line, size_t startsize)
+    : name(name), value(startsize), line(line)
+{
+    next = NULL;
+    used = false;
+}
+
+StreamProtocolParser::Protocol::Variable::
+Variable(const Variable& v)
+    : name(v.name), value(v.value)
+{
+    line = v.line;
+    used = v.used;
+    next = NULL;
+}
+
+StreamProtocolParser::Protocol::Variable::
+~Variable()
+{
+    delete next;
+}
+
+//////////////////////////////////////////////////////////////////////////////
 // StreamProtocolParser::Protocol
 
 // for global settings
-inline StreamProtocolParser::Protocol::
+StreamProtocolParser::Protocol::
 Protocol(const char* filename)
     : filename(filename)
 {
@@ -778,18 +804,18 @@ report()
 }
 
 StreamBuffer* StreamProtocolParser::Protocol::
-createVariable(const char* name, int line)
+createVariable(const char* name, int linenr)
 {
     Variable** ppV;
     for (ppV = &variables; *ppV; ppV = &(*ppV)->next)
     {
         if ((*ppV)->name.equals(name))
         {
-            (*ppV)->line = line;
+            (*ppV)->line = linenr;
             return &(*ppV)->value;
         }
     }
-    *ppV = new Variable(name, line);
+    *ppV = new Variable(name, linenr);
     return &(*ppV)->value;
 }
 
@@ -807,7 +833,7 @@ getVariable(const char* name)
             return pV;
         }
     }
-    return false;
+    return NULL;
 }
 
 const StreamBuffer* StreamProtocolParser::Protocol::
@@ -823,7 +849,7 @@ getValue(const char* varname)
             return &pV->value;
         }
     }
-    return false;
+    return NULL;
 }
 
 bool StreamProtocolParser::Protocol::
@@ -834,8 +860,8 @@ getNumberVariable(const char* varname, unsigned long& value, unsigned long max)
     const char* source = pvar->value();
     if (!compileNumber(value, source, max))
     {
-        int line = getLineNumber(source);
-        errorMsg(line, "in variable %s\n", varname);
+        int linenr = getLineNumber(source);
+        errorMsg(linenr, "in variable %s\n", varname);
         return false;
     }
     if (source != pvar->value.end())
@@ -935,20 +961,20 @@ replaceVariable(StreamBuffer& buffer, const char* varname)
         varname++;
         quoted = true;
     }
-    int line = getLineNumber(varname);
+    int linenr = getLineNumber(varname);
     if (*varname >= '0' && *varname <= '9')
     {
         const char* p = parameter[*varname-'0'];
         if (!p)
         {
-            errorMsg(line,
+            errorMsg(linenr,
                 "Missing value for parameter $%c\n", *varname);
             return false;
         }
         if (!quoted)
         {
             buffer.append(p).append('\0');
-            buffer.append(&line, sizeof(line));
+            buffer.append(&linenr, sizeof(linenr));
             return true;
         }
         buffer.append('"');
@@ -961,13 +987,13 @@ replaceVariable(StreamBuffer& buffer, const char* varname)
             buffer.append(*p++);
         }
         buffer.append('"').append('\0');
-        buffer.append(&line, sizeof(line));
+        buffer.append(&linenr, sizeof(linenr));
         return true;
     }
     const Variable* v = getVariable(varname);
     if (!v)
     {
-        errorMsg(line,
+        errorMsg(linenr,
             "Undefined variable '%s' referenced\n",
             varname);
         return false;
@@ -988,7 +1014,7 @@ replaceVariable(StreamBuffer& buffer, const char* varname)
         if (c == 0 && !escaped)
         {
             // skip line info of token
-            i += sizeof(line);
+            i += sizeof(linenr);
             continue;
         }
         if (escaped) escaped = false;
@@ -996,8 +1022,8 @@ replaceVariable(StreamBuffer& buffer, const char* varname)
         buffer.append(c);
     }
     buffer.append('"').append('\0');
-    line = v->line;
-    buffer.append(&line, sizeof(line));
+    linenr = v->line;
+    buffer.append(&linenr, sizeof(linenr));
     return true;
 }
 
@@ -1315,7 +1341,7 @@ compileString(StreamBuffer& buffer, const char*& source,
             continue;
         }
         // try constant token
-        struct {char* name; char code;} codes [] =
+        struct {const char* name; char code;} codes [] =
         {
             {"skip", skip}, 
             {"?",    skip}, 
@@ -1397,7 +1423,7 @@ compileFormat(StreamBuffer& buffer, const char*& formatstr,
                 "Using fieldname is not possible in this context\n");
             return false;
         }
-        char* fieldnameEnd = strchr(source+=2, ')');
+        const char* fieldnameEnd = strchr(source+=2, ')');
         if (!fieldnameEnd)
         {
             errorMsg(line,
@@ -1586,8 +1612,12 @@ compileFormat(StreamBuffer& buffer, const char*& formatstr,
     streamFormat.infolen = infoString.length();
     // add formatstr for debug purpose
     buffer.append(formatstart, source-formatstart).append(eos);
+
+#ifndef NO_TEMPORARY
     debug("StreamProtocolParser::Protocol::compileFormat: formatstring=\"%s\"\n",
         StreamBuffer(formatstart, source-formatstart).expand()());
+#endif
+
     // add streamFormat structure and info
     buffer.append(&streamFormat, sizeof(streamFormat));
     buffer.append(infoString);
@@ -1647,30 +1677,4 @@ checkUnused()
         }
     }
     return true;
-}
-
-//////////////////////////////////////////////////////////////////////////////
-// StreamProtocolParser::Protocol::Variable
-
-inline StreamProtocolParser::Protocol::Variable::
-Variable(const char* name, int line, size_t startsize)
-    : name(name), value(startsize), line(line)
-{
-    next = NULL;
-    used = false;
-}
-
-inline StreamProtocolParser::Protocol::Variable::
-Variable(const Variable& v)
-    : name(v.name), value(v.value)
-{
-    line = v.line;
-    used = v.used;
-    next = NULL;
-}
-
-StreamProtocolParser::Protocol::Variable::
-~Variable()
-{
-    delete next;
 }

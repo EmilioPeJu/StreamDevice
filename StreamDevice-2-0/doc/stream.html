@@ -26,7 +26,8 @@ IEEE-488 (also known as GPIB or HP-IB), and TCP/IP.
 <em>StreamDevice</em> comes with an interface to<a target="ex"
 href="http://www.aps.anl.gov/epics/modules/soft/asyn/">
 <em>asynDriver</em></a>
-but can be extended to support other bus drivers.
+but can be extended to
+<a href="businterface.html">support other bus drivers</a>.
 </p>
 <p>
 If the device can be controlled with strings like
@@ -35,7 +36,8 @@ How the strings exactly look like is defined in <em>protocols</em>.
 Formatting and interpretation of values is done with
 <a href="formats.html"><em>format converters</em></a> similar to those
 known from the C functions <em>printf()</em> and <em>scanf()</em>.
-To support other formats, it is possible to write your own converters.
+To support other formats, it is possible to
+<a href="formatconverter.html">write your own converters</a>.
 </p>
 <p>
 Each record with <em>StreamDevice</em> support runs one <em>protocol</em>
@@ -54,7 +56,8 @@ It does not provide loops or branches.
 <em>StreamDevice</em> supports all
 <a href="recordtypes.html">standard records</a> of EPICS base
 which can have device support.
-It is also possible to write support for new record types.
+It is also possible to
+<a href="recordinterface.html">write support for new record types</a>.
 </p>
 
 <h2>What is <em>StreamDevice</em> not?</h2>

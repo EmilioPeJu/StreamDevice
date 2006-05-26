@@ -24,17 +24,19 @@
 #include "StreamBuffer.h"
 #include <stdio.h>
 
-enum StreamCodes
-{
-    eos = 0, skip, format, format_field, last_function_code,
-    esc = 033, cr = '\r', lf = '\n'
-};
+#define cr  '\r'
+#define lf  '\n'
 
 enum FormatType {NoFormat, ScanFormat, PrintFormat};
 
 class StreamProtocolParser
 {
 public:
+
+    enum Codes
+    {
+        eos = 0, skip, format, format_field, last_function_code
+    };
 
     class Client;
 
@@ -105,7 +107,6 @@ private:
     bool valid;
 
     StreamProtocolParser(FILE* file, const char* filename);
-    ~StreamProtocolParser();
     Protocol* getProtocol(const StreamBuffer& protocolAndParams);
     bool isGlobalContext(const StreamBuffer* commands);
     bool isHandlerContext(Protocol&, const StreamBuffer* commands);
@@ -115,15 +116,18 @@ private:
     bool readToken(StreamBuffer& buffer,
         const char* specialchars = NULL, bool eofAllowed = false);
     bool parseAssignment(const char* variable, Protocol&);
-    bool parseValue(StreamBuffer& buffer, Protocol&, bool lazy = false);
+    bool parseValue(StreamBuffer& buffer, bool lazy = false);
     void errorMsg(const char* fmt, ...)
         __attribute__ ((format(printf,2,3)));
+
+protected: 
+    ~StreamProtocolParser(); // get rid of cygnus-2.7.2 compiler warning
 
 public:
     static Protocol* getProtocol(const char* file,
         const StreamBuffer& protocolAndParams);
     static void free();
-    static char* path;
+    static const char* path;
     static const char* formatTypeStr(int type);
     static const char* printString(StreamBuffer&, const char* string);
     void report();
@@ -131,15 +135,18 @@ public:
 
 inline int getLineNumber(const char* s)
 {
-    return *reinterpret_cast<const int*>(s+strlen(s)+1);
+    int l;
+    memcpy (&l, s+strlen(s)+1, sizeof(int));
+    return l;
 }
 
 template<class T>
-inline const T& extract(const char*& string)
+inline const T extract(const char*& string)
 {
-    const T* p = reinterpret_cast<const T*>(string);
+    T p;
+    memcpy (&p, string, sizeof(T));
     string += sizeof(T);
-    return *p;
+    return p;
 }
 
 /*

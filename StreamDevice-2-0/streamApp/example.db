@@ -1,3 +1,8 @@
+record (sub, "DZ-stream:reload")
+{
+    field (SNAM, "streamReload")
+}
+
 #record (ao, "DZ-AO-stream")
 #{
 #    field (DESC, "An analog value")
@@ -90,9 +95,11 @@
 #    field (EGU,  "µm")
 #}
 #
-record (sub, "DZ-stream:reload")
+record(stringin, "DZ:ID")
 {
-    field (SNAM, "streamReload")
+    field (DTYP, "stream")
+    field (INP,  "@example.proto ID terminal")
+#    field (PINI, "YES")
 }
 
 record (stringout, "DZ:command")

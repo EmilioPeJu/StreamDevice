@@ -20,21 +20,22 @@
 
 #include "StreamFormatConverter.h"
 #include "StreamError.h"
+#include "StreamProtocol.h"
 
 // Enum %{string0|string1|...}
 
 class StreamEnumConverter : public StreamFormatConverter
 {
     int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int print(const StreamFormat&, StreamBuffer&, long);
-    int scan(const StreamFormat&, const char*, long&);
+    int printLong(const StreamFormat&, StreamBuffer&, long);
+    int scanLong(const StreamFormat&, const char*, long&);
 };
 
 int StreamEnumConverter::
-parse(const StreamFormat& format, StreamBuffer& info,
-    const char*& source, bool scanFormat)
+parse(const StreamFormat& fmt, StreamBuffer& info,
+    const char*& source, bool)
 {
-    if (format.flags & (left_flag|sign_flag|space_flag|zero_flag|alt_flag))
+    if (fmt.flags & (left_flag|sign_flag|space_flag|zero_flag|alt_flag))
     {
         error("Use of modifiers '-', '+', ' ', '0', '#'"
             "not allowed with %%{ conversion\n");
@@ -74,11 +75,11 @@ parse(const StreamFormat& format, StreamBuffer& info,
 }
 
 int StreamEnumConverter::
-print(const StreamFormat& format, StreamBuffer& output, long value)
+printLong(const StreamFormat& fmt, StreamBuffer& output, long value)
 {
-    long maxValue = *(unsigned char *)format.info();
+    long maxValue = fmt.info[0]; // number of enums
+    const char* s = fmt.info+1;  // first enum string
     if (value < 0 || value > maxValue) return false;
-    const char* s = format.info()+1;
     while (value--)
     {
         while(*s)
@@ -97,34 +98,39 @@ print(const StreamFormat& format, StreamBuffer& output, long value)
 }
 
 int StreamEnumConverter::
-scan(const StreamFormat& format, const char* input, long& value)
+scanLong(const StreamFormat& fmt, const char* input, long& value)
 {
-    debug("StreamEnumConverter::scan(%%%c, \"%s\")\n",
-        format.conv, input);
-    long maxValue = *(unsigned char *)format.info();
+    debug("StreamEnumConverter::scanLong(%%%c, \"%s\")\n",
+        fmt.conv, input);
+    long maxValue = fmt.info[0]; // number of enums
+    const char* s = fmt.info+1; // first enum string
     int length;
-    int val;
-    const char* s = format.info()+1;
+    long val;
     bool match;
     for (val = 0; val <= maxValue; val++)
     {
-        debug("StreamEnumConverter::scan: check #%d \"%s\"\n", val, s);
+        debug("StreamEnumConverter::scanLong: check #%ld \"%s\"\n", val, s);
         length = 0;
         match = true;
         while(*s)
         {
+            if (*s == StreamProtocolParser::skip) {
+                s++;
+                length++;
+                continue;
+            }
             if (*s == esc) s++;
             if (*s++ != input[length++]) match = false;
         }
         if (match)
         {
-            debug("StreamEnumConverter::scan: value %d matches\n", val);
+            debug("StreamEnumConverter::scanLong: value %ld matches\n", val);
             value = val;
             return length;
         }
         s++;
     }
-    debug("StreamEnumConverter::scan: no value matches\n");
+    debug("StreamEnumConverter::scanLong: no value matches\n");
     return -1;
 }
 

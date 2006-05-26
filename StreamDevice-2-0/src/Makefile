@@ -14,6 +14,16 @@ LIBRARY_IOC += stream
 # install stream.dbd into <top>/dbd
 DBD += stream.dbd
 
+ifdef ASYN_VERS
+#LIB_LIBS += asyn
+
+ifeq ($(ASYN_COMPAT_$(ASYN_VERS)),)
+ASYN_COMPAT_$(ASYN_VERS)=$(ASYN_VERS)
+endif
+
+BUSSES += AsynDriver$(ASYN_COMPAT_$(ASYN_VERS))
+endif
+
 # The following are compiled and added to the Support library
 stream_SRCS += stream_registerRecordDeviceDriver.cpp
 stream_SRCS += $(STREAM_SRCS)

@@ -118,10 +118,24 @@ checksum {
     out "%s%<sum32> sum32";
     out "%s%<crc32> crc32"; 
     out "%s%<crc32r> crcr32";
-    out "%s%#<jamcrc> jamcrc";
+    out "%s%<jamcrc> jamcrc";
     out "%s%<adler32> adler32";
-    out "%s%#<adler32> adler32 little endian";
-    in "%3s%#<jamcrc>";
+
+    out "%s%0<sum> sum (ASCII)";
+    out "%s%0<nsum> nsum (ASCII)";
+    out "%s%0<xor> xor (ASCII)";
+    out "%s%0<crc8> crc8 (ASCII)";
+    out "%s%0<ccitt8> ccitt8 (ASCII)";
+    out "%s%0<sum16> sum16 (ASCII)"; 
+    out "%s%0<crc16> crc16 (ASCII)"; 
+    out "%s%0<crc16r> crc16r (ASCII)";
+    out "%s%0<ccitt16> ccitt16 (ASCII)";
+    out "%s%0<ccitt16a> ccitt16 with augment (ASCII)";
+    out "%s%0<sum32> sum32 (ASCII)";
+    out "%s%0<crc32> crc32 (ASCII)"; 
+    out "%s%0<crc32r> crcr32 (ASCII)";
+    out "%s%0<jamcrc> jamcrc (ASCII)";
+    out "%s%0<adler32> adler32 (ASCII)";
 }
 
 variable = 18 20 2 0 7;
@@ -147,6 +161,11 @@ prompt {
     replyTimeout = 10000;
     OutTerminator = "";
     out "WRITE [%s]> ";
+    in "%39c";
+}
+
+ID {
+    out "ID?";
     in "%39c";
 }
 

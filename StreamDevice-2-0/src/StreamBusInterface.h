@@ -77,32 +77,8 @@ public:
 private:
     friend class StreamBusInterfaceClass; // the iterator
     friend class Client;
-    class RegistrarBase
-    {
-        friend class StreamBusInterfaceClass; // the iterator
-        friend class StreamBusInterface;      // the implementation
-        static RegistrarBase* first;
-        RegistrarBase* next;
-        virtual StreamBusInterface* find(Client* client,
-            const char* busname, int addr, const char* param) = 0;
-    protected:
-        const char* name;
-        RegistrarBase(const char* name);
-    public:
-        const char* getName() { return name; }
-    };
 
 public:
-    template <class C>
-    class Registrar : protected RegistrarBase
-    {
-        StreamBusInterface* find(Client* client, const char* busname,
-            int addr, const char* param)
-            { return C::getBusInterface(client, busname, addr, param); }
-    public:
-        Registrar(const char* name) : RegistrarBase(name) {};
-    };
-
     Client* client;
     virtual ~StreamBusInterface() {};
 
@@ -126,8 +102,8 @@ protected:
     virtual bool setEos(const char* eos, size_t eoslen);
     virtual bool supportsEvent(); // defaults to false
     virtual bool supportsAsyncRead(); // defaults to false
-    virtual bool acceptEvent(unsigned long mask,
-        unsigned long replytimeout_ms); // implement if supportsEvents() = true
+    virtual bool acceptEvent(unsigned long mask, // implement if
+        unsigned long replytimeout_ms);     // supportsEvents() returns true
     virtual void release();
 
 // pure virtual
@@ -145,19 +121,46 @@ public:
         int addr, const char* param);
 };
 
+class StreamBusInterfaceRegistrarBase
+{
+    friend class StreamBusInterfaceClass; // the iterator
+    friend class StreamBusInterface;      // the implementation
+    static StreamBusInterfaceRegistrarBase* first;
+    StreamBusInterfaceRegistrarBase* next;
+    virtual StreamBusInterface* find(StreamBusInterface::Client* client,
+        const char* busname, int addr, const char* param) = 0;
+protected:
+    const char* name;
+    StreamBusInterfaceRegistrarBase(const char* name);
+public:
+    const char* getName() { return name; }
+};
+    
+template <class C>
+class StreamBusInterfaceRegistrar : protected StreamBusInterfaceRegistrarBase
+{
+    StreamBusInterface* find(StreamBusInterface::Client* client,
+        const char* busname, int addr, const char* param)
+        { return C::getBusInterface(client, busname, addr, param); }
+public:
+    StreamBusInterfaceRegistrar(const char* name) :
+        StreamBusInterfaceRegistrarBase(name) {};
+};
+
+
 #define RegisterStreamBusInterface(interface) \
-template class StreamBusInterface::Registrar<interface>; \
-static StreamBusInterface::Registrar<interface> \
-registrar_##interface(#interface);
+template class StreamBusInterfaceRegistrar<interface>; \
+static StreamBusInterfaceRegistrar<interface> \
+registrar_##interface(#interface)
 
 // Interface class iterator
 
 class StreamBusInterfaceClass
 {
-    StreamBusInterface::RegistrarBase* ptr;
+    StreamBusInterfaceRegistrarBase* ptr;
 public:
     StreamBusInterfaceClass () {
-        ptr = StreamBusInterface::RegistrarBase::first;
+        ptr = StreamBusInterfaceRegistrarBase::first;
     }
     StreamBusInterfaceClass& operator ++ () {
         ptr = ptr->next; return *this;

@@ -25,7 +25,7 @@
 #define STREAM_MINOR 0
 extern const char StreamVersion [];
 
-#ifdef __vxworks
+#if defined(__vxworks) || defined(vxWorks)
 #include <vxWorks.h>
 #endif
 

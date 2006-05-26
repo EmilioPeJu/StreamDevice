@@ -23,12 +23,12 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-enum Commands { end, in, out, wait, event, exec };
+enum Commands { end_cmd, in_cmd, out_cmd, wait_cmd, event_cmd, exec_cmd };
 const char* commandStr[] = { "end", "in", "out", "wait", "event", "exec" };
 
 inline const char* commandName(unsigned char i)
 {
-    return i > exec ? "invalid" : commandStr[i];
+    return i > exec_cmd ? "invalid" : commandStr[i];
 }
 
 /// debug functions /////////////////////////////////////////////
@@ -42,28 +42,28 @@ static char* printCommands(StreamBuffer& buffer, const char* c)
     {
         switch(*c++)
         {
-            case eos:
+            case end_cmd:
                 return buffer();
-            case in:
+            case in_cmd:
                 buffer.append("    in \"");
                 c = StreamProtocolParser::printString(buffer, c);
                 buffer.append("\";\n");
                 break;
-            case out:
+            case out_cmd:
                 buffer.append("    out \"");
                 c = StreamProtocolParser::printString(buffer, c);
                 buffer.append("\";\n");
                 break;
-            case wait:
+            case wait_cmd:
                 timeout = extract<unsigned long>(c);
                 buffer.printf("    wait %ld;\n", timeout);
                 break;
-            case event:
+            case event_cmd:
                 eventnumber = extract<unsigned long>(c);
                 timeout = extract<unsigned long>(c);
                 buffer.printf ("    event(%ld) %ld;\n", eventnumber, timeout);
                 break;
-            case exec:
+            case exec_cmd:
                 buffer.append("    exec \"");
                 cmdlen = extract<unsigned short>(c);
                 c = StreamProtocolParser::printString(buffer, c);
@@ -268,31 +268,31 @@ compileCommand(StreamProtocolParser::Protocol* protocol,
 {
     unsigned long timeout = 0;
 
-    if (strcmp(command, commandStr[in]) == 0)
+    if (strcmp(command, commandStr[in_cmd]) == 0)
     {
-        buffer.append(in);
+        buffer.append(in_cmd);
         if (!protocol->compileString(buffer, args,
             ScanFormat, this))
         {
             return false;
         }
-        buffer.append(eos);
+        buffer.append(StreamProtocolParser::eos);
         return true;
     }
-    if (strcmp(command, commandStr[out]) == 0)
+    if (strcmp(command, commandStr[out_cmd]) == 0)
     {
-        buffer.append(out);
+        buffer.append(out_cmd);
         if (!protocol->compileString(buffer, args,
             PrintFormat, this))
         {
             return false;
         }
-        buffer.append(eos);
+        buffer.append(StreamProtocolParser::eos);
         return true;
     }
-    if (strcmp(command, commandStr[wait]) == 0)
+    if (strcmp(command, commandStr[wait_cmd]) == 0)
     {
-        buffer.append(wait);
+        buffer.append(wait_cmd);
         if (!protocol->compileNumber(timeout, args))
         {
             return false;
@@ -300,7 +300,7 @@ compileCommand(StreamProtocolParser::Protocol* protocol,
         buffer.append(&timeout, sizeof(timeout));
         return true;
     }
-    if (strcmp(command, commandStr[event]) == 0)
+    if (strcmp(command, commandStr[event_cmd]) == 0)
     {
         if (!busSupportsEvent())
         {
@@ -309,7 +309,7 @@ compileCommand(StreamProtocolParser::Protocol* protocol,
             return false;
         }
         unsigned long eventmask = 0xffffffff;
-        buffer.append(event);
+        buffer.append(event_cmd);
         if (*args == '(')
         {
             if (!protocol->compileNumber(eventmask, ++args))
@@ -335,15 +335,15 @@ compileCommand(StreamProtocolParser::Protocol* protocol,
         buffer.append(&timeout, sizeof(timeout));
         return true;
     }
-    if (strcmp(command, commandStr[exec]) == 0)
+    if (strcmp(command, commandStr[exec_cmd]) == 0)
     {
-        buffer.append(exec);
+        buffer.append(exec_cmd);
         if (!protocol->compileString(buffer, args,
             NoFormat, this))
         {
             return false;
         }
-        buffer.append(eos);
+        buffer.append(StreamProtocolParser::eos);
         return true;
     }
     protocol->errorMsg(getLineNumber(command),
@@ -478,21 +478,21 @@ evalCommand()
         name(), commandName(*activeCommand));
     switch (*commandIndex++)
     {
-        case out:
+        case out_cmd:
             flags &= ~(AcceptInput|AcceptEvent);
             return evalOut();
-        case in:
+        case in_cmd:
             flags &= ~AcceptEvent;
             return evalIn();
-        case wait:
+        case wait_cmd:
             flags &= ~(AcceptInput|AcceptEvent);
             return evalWait();
-        case event:
+        case event_cmd:
             flags &= ~AcceptInput;
             return evalEvent();
-        case exec:
+        case exec_cmd:
             return evalExec();
-        case end:
+        case end_cmd:
             finishProtocol(Success);
             return true;
         default:
@@ -519,11 +519,11 @@ evalOut()
     }
     outputLine.append(outTerminator);
     debug ("StreamCore::evalOut: outputLine = \"%s\"\n", outputLine.expand()());
-    if (*commandIndex == in)  // prepare for early input
+    if (*commandIndex == in_cmd)  // prepare for early input
     {
         flags |= AcceptInput;
     }
-    if (*commandIndex == event)  // prepare for early event
+    if (*commandIndex == event_cmd)  // prepare for early event
     {
         flags |= AcceptEvent;
     }
@@ -553,36 +553,37 @@ formatOutput()
     const void* fieldAddress = NULL;
     const char* fieldName = NULL;
     const char* formatstring;
-    while ((command = *commandIndex++) != eos)
+    while ((command = *commandIndex++) != StreamProtocolParser::eos)
     {
         switch (command)
         {
-            case format_field:
+            case StreamProtocolParser::format_field:
             {
-                debug("StreamCore::formatOutput(%s): format_field\n",
+                debug("StreamCore::formatOutput(%s): StreamProtocolParser::format_field\n",
                     name());
                 // code layout:
-                // field <eos> addrLength AddressStructure formatstring <eos> StreamFormat [info]
+                // field <StreamProtocolParser::eos> addrLength AddressStructure formatstring <StreamProtocolParser::eos> StreamFormat [info]
                 fieldName = commandIndex;
                 commandIndex += strlen(commandIndex)+1;
                 unsigned short length = extract<unsigned short>(commandIndex);
                 fieldAddress = commandIndex;
                 commandIndex += length;
             }
-            case format:
+            case StreamProtocolParser::format:
             {
                 // code layout:
-                // formatstring <eos> StreamFormat [info]
+                // formatstring <StreamProtocolParser::eos> StreamFormat [info]
                 formatstring = commandIndex;
-                while (*commandIndex++); // jump after <eos>
-                const StreamFormat& format = extract<StreamFormat>(commandIndex);
+                while (*commandIndex++); // jump after <StreamProtocolParser::eos>
+                StreamFormat fmt = extract<StreamFormat>(commandIndex);
+                fmt.info = commandIndex; // point to info string
+                commandIndex += fmt.infolen;
                 debug("StreamCore::formatOutput(%s): format = %%%s\n",
                     name(), formatstring);
-                commandIndex += format.infolen;
-                if (format.type == pseudo_format)
+                if (fmt.type == pseudo_format)
                 {
-                    if (!StreamFormatConverter::find(format.conv)->
-                        print(format, outputLine))
+                    if (!StreamFormatConverter::find(fmt.conv)->
+                        printPseudo(fmt, outputLine))
                     {
                         error("%s: Can't print pseudo value '%%%s'\n",
                             name(), formatstring);
@@ -591,7 +592,7 @@ formatOutput()
                     continue;
                 }
                 flags &= ~Separator;
-                if (!formatValue(format, fieldAddress))
+                if (!formatValue(fmt, fieldAddress))
                 {
                     if (fieldName)
                         error("%s: Can't format field '%s' with '%%%s'\n",
@@ -629,52 +630,52 @@ printSeparator()
     if (separator[0] == ' ') i++; // ignore leading space
     for (; i < separator.length(); i++)
     {
-        if (separator[i] == skip) continue; // ignore wildcard
+        if (separator[i] == StreamProtocolParser::skip) continue; // wildcard
         if (separator[i] == esc) i++;       // escaped literal byte
         outputLine.append(separator[i]);
     }
 }
 
 bool StreamCore::
-printValue(const StreamFormat& format, long value)
+printValue(const StreamFormat& fmt, long value)
 {
-    if (format.type != long_format && format.type != enum_format)
+    if (fmt.type != long_format && fmt.type != enum_format)
     {
         error("%s: printValue(long) called with %%%c format\n",
-            name(), format.conv);
+            name(), fmt.conv);
         return false;
     }
     printSeparator();
-    return StreamFormatConverter::find(format.conv)->
-        print(format, outputLine, value);
+    return StreamFormatConverter::find(fmt.conv)->
+        printLong(fmt, outputLine, value);
 }
 
 bool StreamCore::
-printValue(const StreamFormat& format, double value)
+printValue(const StreamFormat& fmt, double value)
 {
-    if (format.type != double_format)
+    if (fmt.type != double_format)
     {
         error("%s: printValue(double) called with %%%c format\n",
-            name(), format.conv);
+            name(), fmt.conv);
         return false;
     }
     printSeparator();
-    return StreamFormatConverter::find(format.conv)->
-        print(format, outputLine, value);
+    return StreamFormatConverter::find(fmt.conv)->
+        printDouble(fmt, outputLine, value);
 }
 
 bool StreamCore::
-printValue(const StreamFormat& format, char* value)
+printValue(const StreamFormat& fmt, char* value)
 {
-    if (format.type != string_format)
+    if (fmt.type != string_format)
     {
         error("%s: printValue(char*) called with %%%c format\n",
-            name(), format.conv);
+            name(), fmt.conv);
         return false;
     }
     printSeparator();
-    return StreamFormatConverter::find(format.conv)->
-        print(format, outputLine, value);
+    return StreamFormatConverter::find(fmt.conv)->
+        printString(fmt, outputLine, value);
 }
 
 void StreamCore::
@@ -773,6 +774,8 @@ readCallback(StreamBusInterface::IoStatus status,
 {
     MutexLock lock(this);
     lastInputStatus = status;
+
+#ifndef NO_TEMPORARY
     debug("StreamCore::readCallback(%s, status=%s input=\"%s\", size=%ld)\n",
         name(),
         status == 0 ? "ioSuccess" :
@@ -781,6 +784,8 @@ readCallback(StreamBusInterface::IoStatus status,
         status == 3 ? "ioEnd" :
         status == 4 ? "ioFault" : "Invalid",
         StreamBuffer(input, size).expand()(), size);
+#endif
+
     if (!(flags & AcceptInput))
     {
         error("StreamCore::readCallback(%s) called unexpectedly\n",
@@ -824,7 +829,7 @@ readCallback(StreamBusInterface::IoStatus status,
     inputBuffer.append(input, size);
     debug("StreamCore::readCallback(%s) inputBuffer=\"%s\", size %ld\n",
         name(), inputBuffer.expand()(), inputBuffer.length());
-    if (*activeCommand != in)
+    if (*activeCommand != in_cmd)
     {
         // early input, stop here and wait for in command
         // -- Should we limit size of inputBuffer? --
@@ -934,55 +939,57 @@ matchInput()
     
     consumedInput = 0;
     
-    while ((command = *commandIndex++) != eos)
+    while ((command = *commandIndex++) != StreamProtocolParser::eos)
     {
         switch (command)
         {
-            case format_field:
+            case StreamProtocolParser::format_field:
             {
                 // code layout:
-                // field <eos> addrlen AddressStructure formatstring <eos> StreamFormat [info]
+                // field <StreamProtocolParser::eos> addrlen AddressStructure formatstring <StreamProtocolParser::eos> StreamFormat [info]
                 commandIndex += strlen(commandIndex)+1;
                 unsigned short addrlen = extract<unsigned short>(commandIndex);
                 fieldAddress = commandIndex;
                 commandIndex += addrlen;
             }
-            case format:
+            case StreamProtocolParser::format:
             {
                 int consumed;
                 // code layout:
                 // formatstring <eos> StreamFormat [info]
                 formatstring = commandIndex;
-                while (*commandIndex++); // jump after <eos>
-                const StreamFormat& format = extract<StreamFormat>(commandIndex);
-                commandIndex += format.infolen;
-                if (format.flags & skip_flag || format.type == pseudo_format)
+                while (*commandIndex++ != StreamProtocolParser::eos); // jump after <eos>
+                
+                StreamFormat fmt = extract<StreamFormat>(commandIndex);
+                fmt.info = commandIndex;
+                commandIndex += fmt.infolen;
+                if (fmt.flags & skip_flag || fmt.type == pseudo_format)
                 {
                     long ldummy;
                     double ddummy;
-                    switch (format.type)
+                    switch (fmt.type)
                     {
                         case long_format:
                         case enum_format:
-                            consumed = StreamFormatConverter::find(format.conv)->
-                                scan(format, inputLine(consumedInput), ldummy);
+                            consumed = StreamFormatConverter::find(fmt.conv)->
+                                scanLong(fmt, inputLine(consumedInput), ldummy);
                             break;
                         case double_format:
-                            consumed = StreamFormatConverter::find(format.conv)->
-                                scan(format, inputLine(consumedInput), ddummy);
+                            consumed = StreamFormatConverter::find(fmt.conv)->
+                                scanDouble(fmt, inputLine(consumedInput), ddummy);
                             break;
                         case string_format:
-                            consumed = StreamFormatConverter::find(format.conv)->
-                                scan(format, inputLine(consumedInput), NULL, 0);
+                            consumed = StreamFormatConverter::find(fmt.conv)->
+                                scanString(fmt, inputLine(consumedInput), NULL, 0);
                             break;
                         case pseudo_format:
                             // pass complete input
-                            consumed = StreamFormatConverter::find(format.conv)->
-                                scan(format, inputLine, consumedInput);
+                            consumed = StreamFormatConverter::find(fmt.conv)->
+                                scanPseudo(fmt, inputLine, consumedInput);
                             break;
                         default:
                             error("INTERNAL ERROR (%s): illegal format.type 0x%02x\n",
-                                name(), format.type);
+                                name(), fmt.type);
                             return false;
                     }
                     if (consumed < 0)
@@ -1000,7 +1007,7 @@ matchInput()
                     break;
                 }
                 flags &= ~Separator;
-                if (!matchValue(format, fieldAddress))
+                if (!matchValue(fmt, fieldAddress))
                 {
                     if (!(flags & AsyncMode))
                     {
@@ -1019,7 +1026,7 @@ matchInput()
                 fieldAddress = NULL;
                 break;
             }
-            case skip:
+            case StreamProtocolParser::skip:
                 // ignore next input byte
                 consumedInput++;
                 break;
@@ -1031,13 +1038,21 @@ matchInput()
                 if (consumedInput >= inputLine.length())
                 {
                     if (!(flags & AsyncMode))
-                        error("%s: Input too short for pattern\n", name());
+                        error("%s: Input \"%s%s\" too short. No match for byte \"%s\"\n",
+                            name(), 
+                            inputLine.length() > 20 ? "..." : "",
+                            inputLine.expand(-20)(),
+                            StreamBuffer(&command,1).expand()());
                     return false;
                 }
                 if (command != inputLine[consumedInput])
                 {
                     if (!(flags & AsyncMode))
-                        error("%s: Input does not match pattern\n", name());
+                        error("%s: Input \"%s%s\" does not match pattern byte \"%s\"\n",
+                        name(),
+                        inputLine.expand(consumedInput,20)(),
+                        inputLine.length()-consumedInput > 20 ? "..." : "",
+                        StreamBuffer(&command,1).expand()());
                     return false;
                 }
                 consumedInput++;
@@ -1075,7 +1090,7 @@ matchSeparator()
     for (; i < separator.length(); i++,consumedInput++)
     {
         if (!inputLine[consumedInput]) return false;
-        if (separator[i] == skip) continue; // wildcard
+        if (separator[i] == StreamProtocolParser::skip) continue; // wildcard
         if (separator[i] == esc) i++;       // escaped literal byte
         if (separator[i] != inputLine[consumedInput]) return false;
     }
@@ -1093,20 +1108,20 @@ scanSeparator()
 }
 
 long StreamCore::
-scanValue(const StreamFormat& format, long& value)
+scanValue(const StreamFormat& fmt, long& value)
 {
-    if (format.type != long_format && format.type != enum_format)
+    if (fmt.type != long_format && fmt.type != enum_format)
     {
         error("%s: scanValue(long&) called with %%%c format\n",
-            name(), format.conv);
+            name(), fmt.conv);
         return -1;
     }
     flags |= ScanTried;
     if (!matchSeparator()) return -1;
-    long consumed = StreamFormatConverter::find(format.conv)->
-        scan(format, inputLine(consumedInput), value);
+    long consumed = StreamFormatConverter::find(fmt.conv)->
+        scanLong(fmt, inputLine(consumedInput), value);
     debug("StreamCore::scanValue(%s, format=%%%c, long) input=\"%s\"\n",
-        name(), format.conv, inputLine.expand(consumedInput)());
+        name(), fmt.conv, inputLine.expand(consumedInput)());
     if (consumed < 0 ||
         consumed > inputLine.length()-consumedInput) return -1;
     debug("StreamCore::scanValue(%s) scanned %li\n",
@@ -1116,20 +1131,20 @@ scanValue(const StreamFormat& format, long& value)
 }
 
 long StreamCore::
-scanValue(const StreamFormat& format, double& value)
+scanValue(const StreamFormat& fmt, double& value)
 {
-    if (format.type != double_format)
+    if (fmt.type != double_format)
     {
         error("%s: scanValue(double&) called with %%%c format\n",
-            name(), format.conv);
+            name(), fmt.conv);
         return -1;
     }
     flags |= ScanTried;
     if (!matchSeparator()) return -1;
-    long consumed = StreamFormatConverter::find(format.conv)->
-        scan(format, inputLine(consumedInput), value);
+    long consumed = StreamFormatConverter::find(fmt.conv)->
+        scanDouble(fmt, inputLine(consumedInput), value);
     debug("StreamCore::scanValue(%s, format=%%%c, double) input=\"%s\"\n",
-        name(), format.conv, inputLine.expand(consumedInput)());
+        name(), fmt.conv, inputLine.expand(consumedInput)());
     if (consumed < 0 ||
         consumed > inputLine.length()-consumedInput) return -1;
     debug("StreamCore::scanValue(%s) scanned %#g\n",
@@ -1139,21 +1154,21 @@ scanValue(const StreamFormat& format, double& value)
 }
 
 long StreamCore::
-scanValue(const StreamFormat& format, char* value, long maxlen)
+scanValue(const StreamFormat& fmt, char* value, long maxlen)
 {
-    if (format.type != string_format)
+    if (fmt.type != string_format)
     {
         error("%s: scanValue(char*) called with %%%c format\n",
-            name(), format.conv);
+            name(), fmt.conv);
         return -1;
     }
     if (maxlen < 0) maxlen = 0;
     flags |= ScanTried;
     if (!matchSeparator()) return -1;
-    long consumed = StreamFormatConverter::find(format.conv)->
-        scan(format, inputLine(consumedInput), value, maxlen);
+    long consumed = StreamFormatConverter::find(fmt.conv)->
+        scanString(fmt, inputLine(consumedInput), value, maxlen);
     debug("StreamCore::scanValue(%s, format=%%%c, char*, maxlen=%ld) input=\"%s\"\n",
-        name(), format.conv, maxlen, inputLine.expand(consumedInput)());
+        name(), fmt.conv, maxlen, inputLine.expand(consumedInput)());
     if (consumed < 0 ||
         consumed > inputLine.length()-consumedInput) return -1;
     debug("StreamCore::scanValue(%s) scanned \"%s\"\n",

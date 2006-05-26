@@ -26,19 +26,19 @@
 class StreamRawConverter : public StreamFormatConverter
 {
     int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int print(const StreamFormat&, StreamBuffer&, long);
-    int scan(const StreamFormat&, const char*, long&);
+    int printLong(const StreamFormat&, StreamBuffer&, long);
+    int scanLong(const StreamFormat&, const char*, long&);
 };
 
 int StreamRawConverter::
-parse(const StreamFormat& format, StreamBuffer& info,
-    const char*& source, bool scanFormat)
+parse(const StreamFormat&, StreamBuffer&,
+    const char*&, bool)
 {
     return long_format;
 }
 
 int StreamRawConverter::
-print(const StreamFormat& format, StreamBuffer& output, long value)
+printLong(const StreamFormat& format, StreamBuffer& output, long value)
 {
     int prec = format.prec;   // number of bytes from value
     if (prec == -1) prec = 1; // default: 1 byte
@@ -77,7 +77,7 @@ print(const StreamFormat& format, StreamBuffer& output, long value)
 }
 
 int StreamRawConverter::
-scan(const StreamFormat& format, const char* input, long& value)
+scanLong(const StreamFormat& format, const char* input, long& value)
 {
     long length = 0;
     long val = 0;

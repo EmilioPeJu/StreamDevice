@@ -1,16 +1,19 @@
-#!/usr/bin/wish
+#/bin/sh
+#\
+exec wish $0
 
 wm iconify .
 
 proc createTerm {sock} {
     global socket
     toplevel .$sock
-    text .$sock.t
+    text .$sock.t -yscrollcommand ".$sock.v set" 
+    scrollbar .$sock.v -command ".$sock.t yview"
     .$sock.t tag configure output -foreground red
     .$sock.t tag configure input -foreground darkgreen
     grid rowconfigure .$sock 0 -weight 1
     grid columnconfigure .$sock 0 -weight 1
-    grid .$sock.t -sticky nsew
+    grid .$sock.t .$sock.v -sticky nsew
     bind .$sock.t <Destroy> "close $sock"
     bind .$sock.t <F1> "%W delete 0.1 end"
     set socket(.$sock.t) $sock
@@ -31,6 +34,7 @@ proc receiveHandler {sock} {
         destroy .$sock
         return
     }
+    .$sock.t mark set insert end
     .$sock.t insert end $a output
     .$sock.t see end
     if {[string range $a 0 4] == "echo "} {
@@ -56,16 +60,25 @@ proc $insert {w s} {
     if {[string equal $s ""] || [string equal [$w cget -state] "disabled"]} {
         return
     }
+    $w mark set insert end
+    $w insert end $s
+    $w see end
     puts -nonewline $socket($w) $s
-    tkTextInsert_org $w $s
 }
 
 proc $paste {w x y} {
-    global socket
+    global insert
     set s [selection get -displayof $w]
-    puts -nonewline $socket($w) $s
-    tkTextPaste_org $w $x $y
-    $w see end
+    $insert $w $s
 }
 
-bind Text <Control-c> [list $insert %W "\x03"]
+#remove bindings on Control-<letter>
+for {set ascii 0x61} {$ascii <= 0x7a} {incr ascii} {
+    bind Text <Control-[format %c $ascii]> ""
+}
+#remove bindings on symbolic tags
+foreach tag {Clear Paste Copy Cut} {
+    bind Text <<$tag>> ""
+}
+
+bind Text <Control-Key> [list $insert %W %A]
