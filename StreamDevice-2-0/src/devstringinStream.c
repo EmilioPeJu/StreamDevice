@@ -1,5 +1,5 @@
 /***************************************************************
-* Stream Device record interface for long input records        *
+* Stream Device record interface for string input records      *
 *                                                              *
 * (C) 1999 Dirk Zimoch (zimoch@delta.uni-dortmund.de)          *
 * (C) 2005 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
@@ -19,35 +19,35 @@
 ***************************************************************/
 
 #include <devStream.h>
-#include <longinRecord.h>
+#include <stringinRecord.h>
 
 static long readData (dbCommon *record, format_t *format)
 {
-    longinRecord *li = (longinRecord *) record;
+    stringinRecord *si = (stringinRecord *) record;
 
-    if (format->type == DBF_LONG || format->type == DBF_ENUM)
+    if (format->type == DBF_STRING)
     {
-        return streamScanf (record, format, &li->val);
+        return streamScanfN (record, format, si->val, sizeof(si->val));
     }
     return ERROR;
 }
 
 static long writeData (dbCommon *record, format_t *format)
 {
-    longinRecord *li = (longinRecord *) record;
+    stringinRecord *si = (stringinRecord *) record;
 
-    if (format->type == DBF_LONG || format->type == DBF_ENUM)
+    if (format->type == DBF_STRING)
     {
-        return streamPrintf (record, format, li->val);
+        return streamPrintf (record, format, si->val);
     }
     return ERROR;
 }
 
 static long initRecord (dbCommon *record)
 {
-    longinRecord *li = (longinRecord *) record;
+    stringinRecord *si = (stringinRecord *) record;
 
-    return streamInitRecord (record, &li->inp, readData, writeData);
+    return streamInitRecord (record, &si->inp, readData, writeData);
 }
 
 struct {
@@ -56,8 +56,8 @@ struct {
     DEVSUPFUN init;
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
-    DEVSUPFUN read_longin;
-} devLiStream = {
+    DEVSUPFUN read;
+} devstringinStream = {
     5,
     streamReport,
     streamInit,
@@ -66,4 +66,4 @@ struct {
     streamRead
 };
 
-epicsExportAddress(dset,devLiStream);
+epicsExportAddress(dset,devstringinStream);

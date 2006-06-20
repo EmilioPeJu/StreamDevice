@@ -324,8 +324,10 @@ The name of the checksum function is not case sensitive.
   <dd>Two bytes. The sum of all characters modulo 2<sup>16</sup>.</dd>
  <dt><code>%&lt;SUM32&gt;</code></dt>
   <dd>Four bytes. The sum of all characters modulo 2<sup>32</sup>.</dd>
- <dt><code>%&lt;NSUM&gt;</code></dt>
+ <dt><code>%&lt;NEGSUM&gt;</code> or <code>%&lt;NSUM&gt;</code> or <code>%&lt;-SUM&gt;</code></dt>
   <dd>One byte. The negative of the sum of all characters modulo 2<sup>8</sup>.</dd>
+ <dt><code>%&lt;NOTSUM&gt;</code> or <code>%&lt;~SUM&gt;</code></dt>
+  <dd>One byte. The bitwise inverse of the sum of all characters modulo 2<sup>8</sup>.</dd>
  <dt><code>%&lt;XOR&gt;</code></dt>
   <dd>One byte. All characters xor'ed.</dd>
  <dt><code>%&lt;CRC8&gt;</code></dt>

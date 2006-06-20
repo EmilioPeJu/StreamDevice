@@ -22,7 +22,7 @@
 #define devStream_h
 
 #define STREAM_MAJOR 2
-#define STREAM_MINOR 0
+#define STREAM_MINOR 1
 extern const char StreamVersion [];
 
 #if defined(__vxworks) || defined(vxWorks)

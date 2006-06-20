@@ -442,6 +442,10 @@ static checksum checksumMap[] =
     {"sum16",   sum,              0x0000,     0x0000,     2}, // 0x01DD
     {"sum32",   sum,              0x00000000, 0x00000000, 4}, // 0x000001DD
     {"nsum",    sum,              0xff,       0xff,       1}, // 0x23
+    {"negsum",  sum,              0xff,       0xff,       1}, // 0x23
+    {"-sum",    sum,              0xff,       0xff,       1}, // 0x23
+    {"notsum",  sum,              0x00,       0xff,       1}, // 0x22
+    {"~sum",    sum,              0x00,       0xff,       1}, // 0x22
     {"xor",     xor8,             0x00,       0x00,       1}, // 0x31
     {"crc8",    crc_0x07,         0x00,       0x00,       1}, // 0xF4
     {"ccitt8",  crc_0x31,         0x00,       0x00,       1}, // 0xA1

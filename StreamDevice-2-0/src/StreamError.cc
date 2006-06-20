@@ -20,25 +20,45 @@
 #include "StreamError.h"
 #include <stdarg.h>
 #include <string.h>
+#include <time.h>
 
 int streamDebug = 0;
-FILE* StreamDebugFile = stderr;
+FILE* StreamDebugFile = NULL;
+
+/* You can globally change the printTimestamp function
+   by setting the StreamPrintTimestampFunction variable
+   to your own function.
+*/
+static void printTimestamp(FILE* file)
+{
+    time_t t;
+    struct tm tm;
+    char buffer [40];
+    time(&t);
+    localtime_r(&t, &tm);
+    strftime(buffer, 40, "%Y/%m/%d %H:%M:%S ", &tm);
+    fprintf(file, buffer);
+}
+
+void (*StreamPrintTimestampFunction)(FILE* file) = printTimestamp;
 
 void StreamError(const char* fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
     fprintf(stderr, "\033[31;1m");
+    StreamPrintTimestampFunction(stderr);
     vfprintf(stderr, fmt, args);
     fprintf(stderr, "\033[0m");
-    if (StreamDebugFile != stderr)
-    {
-        fprintf(StreamDebugFile, "\033[31;1m");
-        vfprintf(StreamDebugFile, fmt, args);
-        fprintf(StreamDebugFile, "\033[0m");
-        fflush(StreamDebugFile);
-    }
     va_end(args);
+    if (StreamDebugFile)
+    {
+        va_start(args, fmt);
+        StreamPrintTimestampFunction(StreamDebugFile);
+        vfprintf(StreamDebugFile, fmt, args);
+        fflush(StreamDebugFile);
+        va_end(args);
+    }
 }
 
 int StreamDebugClass::
@@ -48,9 +68,11 @@ print(const char* fmt, ...)
     va_start(args, fmt);
     const char* f = strrchr(file, '/');
     if (f) f++; else f = file;
-    fprintf(StreamDebugFile, "%s:%d: ", f, line);
-    vfprintf(StreamDebugFile, fmt, args);
-    fflush(StreamDebugFile);
+    FILE* fp = StreamDebugFile ? StreamDebugFile : stderr;
+    StreamPrintTimestampFunction(fp);
+    fprintf(fp, "%s:%d: ", f, line);
+    vfprintf(fp, fmt, args);
+    fflush(fp);
     va_end(args);
     return 1;
 }

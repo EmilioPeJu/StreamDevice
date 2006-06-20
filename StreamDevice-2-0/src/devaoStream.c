@@ -1,6 +1,5 @@
 /***************************************************************
-* StreamDevice record interface for                            *
-* multibit binary input direct records                         *
+* Stream Device record interface for analog output records     *
 *                                                              *
 * (C) 1999 Dirk Zimoch (zimoch@delta.uni-dortmund.de)          *
 * (C) 2005 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
@@ -20,27 +19,29 @@
 ***************************************************************/
 
 #include <devStream.h>
-#include <mbbiDirectRecord.h>
+#include <aoRecord.h>
 
 static long readData (dbCommon *record, format_t *format)
 {
-    mbbiDirectRecord *mbbiD = (mbbiDirectRecord *) record;
-    long val;
+    aoRecord *ao = (aoRecord *) record;
 
-    if (format->type == DBF_LONG)
+    switch (format->type)
     {
-        if (streamScanf (record, format, &val)) return ERROR;
-        if (mbbiD->mask)
+        case DBF_DOUBLE:
         {
-            val &= mbbiD->mask;
-            mbbiD->rval = val;
-            return OK;
-        }
-        else
-        {
-            /* No MASK, (NOBT = 0): use VAL field */
-            mbbiD->val = val;
+            double val;
+            if (streamScanf (record, format, &val)) return ERROR;
+            if (ao->aslo != 0) val *= ao->aslo;
+            ao->val = val + ao->aoff;
             return DO_NOT_CONVERT;
+        }
+        case DBF_LONG:
+        {
+            long rval;
+            if (streamScanf (record, format, &rval)) return ERROR;
+            ao->rbv = rval;
+            if (INIT_RUN) ao->rval = rval;
+            return OK;
         }
     }
     return ERROR;
@@ -48,24 +49,32 @@ static long readData (dbCommon *record, format_t *format)
 
 static long writeData (dbCommon *record, format_t *format)
 {
-    mbbiDirectRecord *mbbiD = (mbbiDirectRecord *) record;
-    long val;
+    aoRecord *ao = (aoRecord *) record;
+    double val;
 
-    if (format->type == DBF_LONG)
+    switch (format->type)
     {
-        if (mbbiD->mask) val = mbbiD->rval & mbbiD->mask;
-        else val = mbbiD->val;
-        return streamPrintf (record, format, val);
+        case DBF_DOUBLE:
+        {
+            if (INIT_RUN) val = ao->val;
+            else val = ao->oval;
+            val -= ao->aoff;
+            if (ao->aslo != 0) val /= ao->aslo;
+            return streamPrintf (record, format, val);
+        }
+        case DBF_LONG:
+        {
+            return streamPrintf (record, format, ao->rval);
+        }
     }
     return ERROR;
 }
 
 static long initRecord (dbCommon *record)
 {
-    mbbiDirectRecord *mbbiD = (mbbiDirectRecord *) record;
+    aoRecord *ao = (aoRecord *) record;
 
-    mbbiD->mask <<= mbbiD->shft;
-    return streamInitRecord (record, &mbbiD->inp, readData, writeData);
+    return streamInitRecord (record, &ao->out, readData, writeData);
 }
 
 struct {
@@ -74,14 +83,16 @@ struct {
     DEVSUPFUN init;
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
-    DEVSUPFUN read_mbbiDirect;
-} devMbbiDirectStream = {
-    5,
+    DEVSUPFUN write;
+    DEVSUPFUN special_linconv;
+} devaoStream = {
+    6,
     streamReport,
     streamInit,
     initRecord,
     streamGetIointInfo,
-    streamRead
+    streamWrite,
+    NULL
 };
 
-epicsExportAddress(dset,devMbbiDirectStream);
+epicsExportAddress(dset,devaoStream);

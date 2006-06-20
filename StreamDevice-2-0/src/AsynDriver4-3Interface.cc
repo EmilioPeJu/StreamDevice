@@ -122,11 +122,18 @@ static void intrCallbackUInt32(void* pvt, asynUser *pasynUser,
     epicsUInt32 data);
 }
 
+enum IoAction {
+    None, Lock, Write, Read, AsyncRead, AsyncReadMore, ReceiveEvent
+};
+
+static const char* ioActionStr[] = {
+    "None", "Lock", "Write", "Read",
+    "AsyncRead", "AsyncReadMore", "ReceiveEvent"
+};
+
 class AsynDriverInterface : StreamBusInterface , epicsTimerNotify
 {
-    enum IoAction {
-        None, Lock, Write, Read, AsyncRead, AsyncReadMore, ReceiveEvent
-    };
+    
 
     asynUser* pasynUser;
     asynCommon* pasynCommon;
@@ -633,8 +640,8 @@ readHandler()
         readMore = 0;
         received = 0;
         debug("AsynDriverInterface::readHandler(%s): "
-                "read(..., bytesToRead=%d, ...) \n",
-                clientName(), bytesToRead);
+                "read(..., bytesToRead=%d, ...) timeout=%f seconds\n",
+                clientName(), bytesToRead, pasynUser->timeout);
         status = pasynOctet->read(pvtOctet, pasynUser,
             buffer, bytesToRead, &received, &eomReason);
 
@@ -712,8 +719,8 @@ void intrCallbackOctet(void* /*pvt*/, asynUser *pasynUser,
     int wasQueued;
     AsynDriverInterface* interface =
         static_cast<AsynDriverInterface*>(pasynUser->userPvt);
-    if (interface->ioAction == AsynDriverInterface::AsyncRead ||
-        interface->ioAction == AsynDriverInterface::AsyncReadMore)
+    if (interface->ioAction == AsyncRead ||
+        interface->ioAction == AsyncReadMore)
     {
     // cancel possible readTimeout or poll timer
         interface->cancelTimer();
@@ -835,8 +842,8 @@ expire(const epicsTime &)
             // continues with handleRequest() or handleTimeout()
             return noRestart;
         default:
-            error("INTERNAL ERROR (%s): expire() unexpected ioAction %d\n",
-                clientName(), ioAction);
+            error("INTERNAL ERROR (%s): expire() unexpected ioAction %s\n",
+                clientName(), ioActionStr[ioAction]);
             return noRestart;
     }
 }
@@ -847,32 +854,26 @@ void handleRequest(asynUser* pasynUser)
 {
     AsynDriverInterface* interface =
         static_cast<AsynDriverInterface*>(pasynUser->userPvt);
+    debug("AsynDriverInterface::handleRequest(%s) %s\n",
+        interface->clientName(), ioActionStr[interface->ioAction]);
     switch (interface->ioAction)
     {
-        case AsynDriverInterface::Lock:
-            debug("AsynDriverInterface::handleRequest (%s) Lock\n",
-                interface->clientName());
+        case Lock:
             interface->lockHandler();
             break;
-        case AsynDriverInterface::Write:
+        case Write:
             interface->writeHandler();
-            debug("AsynDriverInterface::handleRequest (%s) Write\n",
-                interface->clientName());
             break;
-        case AsynDriverInterface::AsyncRead: // polled async input
-            debug("AsynDriverInterface::handleRequest (%s) AsyncRead\n",
-                interface->clientName());
+        case AsyncRead: // polled async input
             interface->readHandler();
             break;
-        case AsynDriverInterface::Read:      // sync input
-            debug("AsynDriverInterface::handleRequest (%s) Read\n",
-                interface->clientName());
+        case Read:      // sync input
             interface->readHandler();
             break;
         default:
             error("INTERNAL ERROR (%s): "
-                "handleRequest() unexpected ioAction %d\n",
-                interface->clientName(), interface->ioAction);
+                "handleRequest() unexpected ioAction %s\n",
+                interface->clientName(), ioActionStr[interface->ioAction]);
     }
 }
 
@@ -880,26 +881,20 @@ void handleTimeout(asynUser* pasynUser)
 {
     AsynDriverInterface* interface =
         static_cast<AsynDriverInterface*>(pasynUser->userPvt);
-    debug("AsynDriverInterface::handleTimeout(%s)\n",
-        interface->clientName());
+    debug("AsynDriverInterface::handleTimeout(%s) %s\n",
+        interface->clientName(), ioActionStr[interface->ioAction]);
     switch (interface->ioAction)
     {
-        case AsynDriverInterface::Lock:
-            error("%s: queueRequest for lock timed out\n",
-                interface->clientName());
+        case Lock:
             interface->lockCallback(AsynDriverInterface::ioTimeout);
             break;
-        case AsynDriverInterface::Write:
-            error("%s: queueRequest for write timed out\n",
-                interface->clientName());
+        case Write:
             interface->writeCallback(AsynDriverInterface::ioTimeout);
             break;
-        case AsynDriverInterface::Read:
-            error("%s: queueRequest for read timed out\n",
-                interface->clientName());
+        case Read:
             interface->readCallback(AsynDriverInterface::ioFault, NULL, 0);
             break;
-        case AsynDriverInterface::AsyncRead: // async poll failed, try later
+        case AsyncRead: // async poll failed, try later
             debug("AsynDriverInterface::handleTimeout(%s): "
                     "restart timer(%g seconds)\n",
                 interface->clientName(), interface->replyTimeout);
@@ -907,8 +902,8 @@ void handleTimeout(asynUser* pasynUser)
             break;
         default:
             error("INTERNAL ERROR (%s): handleTimeout() "
-                "unexpected ioAction %d\n",
-                interface->clientName(), interface->ioAction);
+                "unexpected ioAction %s\n",
+                interface->clientName(), ioActionStr[interface->ioAction]);
     }
 }
 

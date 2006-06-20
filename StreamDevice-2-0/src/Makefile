@@ -5,17 +5,17 @@ include $(TOP)/configure/CONFIG
 -include CONFIG_STREAM
 -include ../CONFIG_STREAM
 
-HOST_OPT = NO
-#CFLAGS += -Werror
-CXXFLAGS += -Werror
+# For vxWorks, we need an OBJLIB.
+# Otherwise bus and converter registry does not work.
+LIBRARY_DEFAULT = stream
+LIBRARY_vxWorks = -nil-
+OBJLIB_vxWorks = $(LIBRARY_DEFAULT)
+OBJLIB_SRCS = $(SRCS)
 
-LIBRARY_IOC += stream
-
-# install stream.dbd into <top>/dbd
-DBD += stream.dbd
+DBD += $(LIBRARY_DEFAULT).dbd
 
 ifdef ASYN_VERS
-#LIB_LIBS += asyn
+LIB_LIBS += asyn
 
 ifeq ($(ASYN_COMPAT_$(ASYN_VERS)),)
 ASYN_COMPAT_$(ASYN_VERS)=$(ASYN_VERS)
@@ -24,27 +24,21 @@ endif
 BUSSES += AsynDriver$(ASYN_COMPAT_$(ASYN_VERS))
 endif
 
-# The following are compiled and added to the Support library
-stream_SRCS += stream_registerRecordDeviceDriver.cpp
-stream_SRCS += $(STREAM_SRCS)
-stream_SRCS += $(RECORDS:%=dev%Stream.c)
-stream_SRCS += $(BUSSES:%=%Interface.cc)
-stream_SRCS += $(FORMATS:%=%Converter.c)
+ifeq ($(LOADABLE_MODULE),YES)
+SRCS += $(LIBRARY_DEFAULT)_registerRecordDeviceDriver.cpp
+endif 
+SRCS += $(STREAM_SRCS)
+SRCS += $(RECORDS:%=dev%Stream.c)
+SRCS += $(BUSSES:%=%Interface.cc)
+SRCS += $(FORMATS:%=%Converter.c)
 
-# Build vxWorks streamLibrary.o
-# (vxWorks linker seems to remove these from stream.o because they are not referenced. 
-#  Until we think of a better solution we will build a vxWorkes combined object 
-#  library or the missing bits)
-OBJLIB_vxWorks += stream
-OBJLIB_SRCS += $(BUSSES:%=%Interface.cc)
-OBJLIB_SRCS += $(FORMATS:%=%Converter.c)
+LIB_LIBS += Com dbIoc dbStaticIoc registryIoc iocsh
 
-# use memguard
-#CPPFLAGS += -include ../memguard.h
-#LIB_SRCS += memguard.cc
+# memguard looks for memory leaks (gcc only)
+# CPPFLAGS += -include ../memguard.h
+# LIB_SRCS += memguard.cc
 
 INC += devStream.h
-#INC += memguard.h
 INC += StreamBuffer.h
 INC += StreamBusInterface.h
 INC += StreamCore.h
@@ -55,7 +49,16 @@ INC += StreamProtocol.h
 
 include $(TOP)/configure/RULES
 
-# update version string (contains __DATE__ and __TIME__)
-# each time make runs
-StreamVersion.o: FORCE
+# Update version string (contains __DATE__ and __TIME__)
+# each time make runs.
+StreamVersion$(OBJ): FORCE
 FORCE:
+
+# create stream.dbd from all RECORDS
+$(COMMON_DIR)/$(LIBRARY_DEFAULT).dbd:
+	@for r in $(RECORDS); \
+	do echo "device($$r,INST_IO,dev$${r}Stream,\"stream\")"; \
+	done > $@
+	@echo "driver(stream)" >> $@
+	@echo "variable(streamDebug, int)" >> $@
+	@echo "registrar(streamRegistrar)" >> $@

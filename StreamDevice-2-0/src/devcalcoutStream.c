@@ -1,7 +1,6 @@
 /***************************************************************
-* Stream Device record interface for string input records      *
+* Stream Device record interface for calcout records           *
 *                                                              *
-* (C) 1999 Dirk Zimoch (zimoch@delta.uni-dortmund.de)          *
 * (C) 2005 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
 *                                                              *
 * This is an EPICS record Interface for StreamDevice.          *
@@ -19,35 +18,57 @@
 ***************************************************************/
 
 #include <devStream.h>
-#include <stringinRecord.h>
+#include <calcoutRecord.h>
+
+#if (EPICS_VERSION==3 && EPICS_REVISION>=14)
 
 static long readData (dbCommon *record, format_t *format)
 {
-    stringinRecord *si = (stringinRecord *) record;
+    calcoutRecord *co = (calcoutRecord *) record;
 
-    if (format->type == DBF_STRING)
+    switch (format->type)
     {
-        return streamScanfN (record, format, si->val, sizeof(si->val));
+        case DBF_DOUBLE:
+        {
+            return streamScanf (record, format, &co->val);
+        }
+        case DBF_LONG:
+        case DBF_ENUM:
+        {
+            long lval;
+
+            if (streamScanf (record, format, &lval)) return ERROR;
+            co->val = lval;
+            return OK;
+        }
     }
     return ERROR;
 }
 
 static long writeData (dbCommon *record, format_t *format)
 {
-    stringinRecord *si = (stringinRecord *) record;
+    calcoutRecord *co = (calcoutRecord *) record;
 
-    if (format->type == DBF_STRING)
+    switch (format->type)
     {
-        return streamPrintf (record, format, si->val);
+        case DBF_DOUBLE:
+        {
+            return streamPrintf (record, format, co->oval);
+        }
+        case DBF_LONG:
+        case DBF_ENUM:
+        {
+            return streamPrintf (record, format, (long)co->oval);
+        }
     }
     return ERROR;
 }
 
 static long initRecord (dbCommon *record)
 {
-    stringinRecord *si = (stringinRecord *) record;
+    calcoutRecord *co = (calcoutRecord *) record;
 
-    return streamInitRecord (record, &si->inp, readData, writeData);
+    return streamInitRecord (record, &co->out, readData, writeData);
 }
 
 struct {
@@ -56,14 +77,18 @@ struct {
     DEVSUPFUN init;
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
-    DEVSUPFUN read_stringin;
-} devSiStream = {
-    5,
+    DEVSUPFUN write;
+    DEVSUPFUN special_linconv;
+} devcalcoutStream = {
+    6,
     streamReport,
     streamInit,
     initRecord,
     streamGetIointInfo,
-    streamRead
+    streamWrite,
+    NULL
 };
 
-epicsExportAddress(dset,devSiStream);
+epicsExportAddress(dset,devcalcoutStream);
+
+#endif

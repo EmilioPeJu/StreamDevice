@@ -23,10 +23,23 @@ target="ex"><em>asynDriver</em></a> as the underlying driver layer,
 you should have <em>asynDriver</em> installed first.
 The current <em>StreamDevice</em> version works with
 <em>asynDriver</em> version 4-3, 4-4, or 4-5.
-Make sure that the <em>asyn</em> library can be found, e.g. by
-adding a line like this to your &lt;top&gt;/configure/RELEASE file:
+</p>
+<p>
+<em>StreamDevice</em> has support for the
+<a href="scalcout.html"><em>scalcout</em></a> record from the
+<em>calc</em> module of <a target="ex"
+href="http://www.aps.anl.gov/aod/bcda/synApps/index.php"
+><em>synApps</em></a>.
+</p>
+<p>
+Make sure that the <em>asyn</em> library and the <em>calc</em> module of
+<em>synApps</em> can be found, e.g. by
+adding <code>ASYN</code>
+and (if installed) <code>CALC</code> or <code>SYNAPPS</code>
+to your &lt;top&gt;/configure/RELEASE file:
 <pre>
 ASYN=/home/epics/asyn/4-5
+CALC=/home/epics/synApps/calc/2-7
 </pre>
 <p>
 Please refer to the
@@ -39,15 +52,16 @@ EPICS Build Facility.
 <h2>2. Build the <em>StreamDevice</em> Library</h2>
 <p>
 Unpack the file
-<a href="http://epics.web.psi.ch/software/streamdevice/StreamDevice-2-0.tgz"
-><em>StreamDevice-2-0.tgz</em></a> in a &lt;top&gt; directory
+<a href="http://epics.web.psi.ch/software/streamdevice/StreamDevice-2.tgz"
+><em>StreamDevice-2.tgz</em></a> in a &lt;top&gt; directory
 of your application build area.
 (You might probably have done this already.)
-Go to the newly created subdirectory StreamDevice-2-0 and run make (or gmake).
+Go to the newly created directory <code>StreamDevice-2-<i>x</i></code>
+and run make (or gmake).
 This will create and install the library <em>stream</em> and the 
 <em>stream.dbd</em> file.
 The sources of the <em>StreamDevice</em> library are in the
-StreamDevice-2-0/src directory.
+<code>src</code> subdirectory.
 </p>
 <a name="app"></a>
 <h2>3. Build an Application</h2>
@@ -75,7 +89,8 @@ registrar(drvAsynIPPortRegisterCommands)
 registrar(drvAsynSerialPortRegisterCommands)
 </pre>
 <p>
-You can find an example application in StreamDevice-2-0/streamApp.
+You can find an example application in the <code>streamApp</code>
+subdirectory.
 </p>
 
 <a name="sta"></a>
@@ -100,10 +115,10 @@ connected device.
 <h3>Example:</h3>
 <p>
 A power supply with serial communication (9600 baud, 8N1) is connected to
-/dev/ttyS1.
+<code>/dev/ttyS1</code>.
 The name of the power supply is <tt>PS1</tt>.
 Protocol files are either in the current working directory or in the
-../protocols directory.
+<code>../protocols</code> directory.
 </p>
 <p>
 Then the startup script must contain lines like this:

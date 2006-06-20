@@ -11,6 +11,7 @@ drvAsynIPPortConfigure "terminal", "localhost:40000"
 
 #load the records
 dbLoadRecords "example.db"
+#dbLoadRecords "scalcout.db"
 
 #var streamDebug 1
 iocInit

@@ -69,8 +69,7 @@ record (sub, "DZ-stream:reload")
 #    field (ONAM, "ON")
 #}
 
-
-#record (mbbo, "DZ-MBBOD-stream")
+#record (mbbo, "DZ-MBBO-stream")
 #{
 #    field (DESC, "Print Enums")
 #    field (DTYP, "stream")
@@ -166,12 +165,12 @@ record (stringout, "DZ:checksum")
 #}
 #
 
-#record (stringin, "DZ:spy")
-#{
-#    field (DTYP, "stream")
-#    field (INP,  "@example.proto spy terminal")
-#    field (SCAN, "I/O Intr")
-#}
+record (stringin, "DZ:spy")
+{
+    field (DTYP, "stream")
+    field (INP,  "@example.proto spy terminal")
+    field (SCAN, "I/O Intr")
+}
 
 #record (stringin, "DZ:prompt")
 #{

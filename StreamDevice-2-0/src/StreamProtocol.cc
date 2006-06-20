@@ -343,7 +343,7 @@ parseProtocol(Protocol& protocol, StreamBuffer* commands)
             // protocol definition
             if (!isGlobalContext(commands))
             {
-                errorMsg("Protocols only allowed in global context: %s\n",
+                errorMsg("Definition of '%s' not in global context (missing '}' ?)\n",
                     token());
                 return false;
             }

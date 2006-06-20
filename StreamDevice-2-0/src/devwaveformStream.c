@@ -279,8 +279,8 @@ struct {
     DEVSUPFUN init;
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
-    DEVSUPFUN read_wf;
-} devWfStream = {
+    DEVSUPFUN read;
+} devwaveformStream = {
     5,
     streamReport,
     streamInit,
@@ -289,4 +289,4 @@ struct {
     streamRead
 };
 
-epicsExportAddress(dset,devWfStream);
+epicsExportAddress(dset,devwaveformStream);

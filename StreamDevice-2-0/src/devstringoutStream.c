@@ -1,5 +1,5 @@
 /***************************************************************
-* StreamDevice record interface for analog input records       *
+* Stream Device record interface for string output records     *
 *                                                              *
 * (C) 1999 Dirk Zimoch (zimoch@delta.uni-dortmund.de)          *
 * (C) 2005 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
@@ -19,61 +19,35 @@
 ***************************************************************/
 
 #include <devStream.h>
-#include <aiRecord.h>
+#include <stringoutRecord.h>
 
 static long readData (dbCommon *record, format_t *format)
 {
-    aiRecord *ai = (aiRecord *) record;
-    double val;
+    stringoutRecord *so = (stringoutRecord *) record;
 
-    switch (format->type)
+    if (format->type == DBF_STRING)
     {
-        case DBF_DOUBLE:
-        {
-            if (streamScanf (record, format, &val)) return ERROR;
-            if (ai->aslo != 0.0) val *= ai->aslo;
-            val += ai->aoff;
-            if (!INIT_RUN && ai->smoo != 0.0)
-            {
-                val = ai->val * ai->smoo + val * (1.0 - ai->smoo);
-            }
-            ai->val = val;
-            return DO_NOT_CONVERT;
-        }
-        case DBF_LONG:
-        {
-            return streamScanf (record, format, &ai->rval);
-        }
+        return streamScanfN (record, format, so->val, sizeof(so->val));
     }
     return ERROR;
 }
 
 static long writeData (dbCommon *record, format_t *format)
 {
-    aiRecord *ai = (aiRecord *) record;
-    double val;
+    stringoutRecord *so = (stringoutRecord *) record;
 
-    switch (format->type)
+    if (format->type == DBF_STRING)
     {
-        case DBF_DOUBLE:
-        {
-            val = ai->val - ai->aoff;
-            if (ai->aslo != 0) val /= ai->aslo;
-            return streamPrintf (record, format, val);
-        }
-        case DBF_LONG:
-        {
-            return streamPrintf (record, format, ai->rval);
-        }
+        return streamPrintf (record, format, so->val);
     }
     return ERROR;
 }
 
 static long initRecord (dbCommon *record)
 {
-    aiRecord *ai = (aiRecord *) record;
+    stringoutRecord *so = (stringoutRecord *) record;
 
-    return streamInitRecord (record, &ai->inp, readData, writeData);
+    return streamInitRecord (record, &so->out, readData, writeData);
 }
 
 struct {
@@ -82,16 +56,14 @@ struct {
     DEVSUPFUN init;
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
-    DEVSUPFUN read_ai;
-    DEVSUPFUN special_linconv;
-} devAiStream = {
-    6,
+    DEVSUPFUN write;
+} devstringoutStream = {
+    5,
     streamReport,
     streamInit,
     initRecord,
     streamGetIointInfo,
-    streamRead,
-    NULL
+    streamWrite
 };
 
-epicsExportAddress(dset,devAiStream);
+epicsExportAddress(dset,devstringoutStream);

@@ -114,7 +114,8 @@ scanLong(const StreamFormat& fmt, const char* input, long& value)
         match = true;
         while(*s)
         {
-            if (*s == StreamProtocolParser::skip) {
+            if (*s == StreamProtocolParser::skip)
+            {
                 s++;
                 length++;
                 continue;

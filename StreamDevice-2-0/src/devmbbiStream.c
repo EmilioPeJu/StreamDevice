@@ -122,8 +122,8 @@ struct {
     DEVSUPFUN init;
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
-    DEVSUPFUN read_mbbi;
-} devMbbiStream = {
+    DEVSUPFUN read;
+} devmbbiStream = {
     5,
     streamReport,
     streamInit,
@@ -132,4 +132,4 @@ struct {
     streamRead
 };
 
-epicsExportAddress(dset,devMbbiStream);
+epicsExportAddress(dset,devmbbiStream);

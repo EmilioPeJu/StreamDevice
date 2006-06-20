@@ -1,5 +1,6 @@
 /***************************************************************
-* Stream Device record interface for binary output records     *
+* StreamDevice record interface for                            *
+* multibit binary output direct records                        *
 *                                                              *
 * (C) 1999 Dirk Zimoch (zimoch@delta.uni-dortmund.de)          *
 * (C) 2005 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
@@ -19,45 +20,28 @@
 ***************************************************************/
 
 #include <devStream.h>
-#include <boRecord.h>
-#include <string.h>
+#include <mbboDirectRecord.h>
 
 static long readData (dbCommon *record, format_t *format)
 {
-    boRecord *bo = (boRecord *) record;
-    unsigned long val;
+    mbboDirectRecord *mbboD = (mbboDirectRecord *) record;
+    long val;
 
-    switch (format->type)
+    if (format->type == DBF_LONG)
     {
-        case DBF_LONG:
+        if (streamScanf (record, format, &val)) return ERROR;
+        if (mbboD->mask)
         {
-            if (streamScanf (record, format, &val)) return ERROR;
-            if (bo->mask) val &= bo->mask;
-            bo->rbv = val;
-            if (INIT_RUN) bo->rval = val;
+            val &= mbboD->mask;
+            mbboD->rbv = val;
+            if (INIT_RUN) mbboD->rval = val;
             return OK;
         }
-        case DBF_ENUM:
+        else
         {
-            if (streamScanf (record, format, &val)) return ERROR;
-            bo->val = (val != 0);
+            /* No MASK, (NOBT = 0): use VAL field */
+            mbboD->val = val;
             return DO_NOT_CONVERT;
-        }
-        case DBF_STRING:
-        {
-            char buffer[sizeof(bo->znam)];
-            if (streamScanfN (record, format, buffer, sizeof(buffer)))
-                return ERROR;
-            if (strcmp (bo->znam, buffer) == 0)
-            {
-                bo->val = 0;
-                return DO_NOT_CONVERT;
-            }
-            if (strcmp (bo->onam, buffer) == 0)
-            {
-                bo->val = 1;
-                return DO_NOT_CONVERT;
-            }
         }
     }
     return ERROR;
@@ -65,32 +49,24 @@ static long readData (dbCommon *record, format_t *format)
 
 static long writeData (dbCommon *record, format_t *format)
 {
-    boRecord *bo = (boRecord *) record;
+    mbboDirectRecord *mbboD = (mbboDirectRecord *) record;
+    long val;
 
-    switch (format->type)
+    if (format->type == DBF_LONG)
     {
-        case DBF_LONG:
-        {
-            return streamPrintf (record, format, bo->rval);
-        }
-        case DBF_ENUM:
-        {
-            return streamPrintf (record, format, (long) bo->val);
-        }
-        case DBF_STRING:
-        {
-            return streamPrintf (record, format,
-                bo->val ? bo->onam : bo->znam);
-        }
+        if (mbboD->mask) val = mbboD->rval & mbboD->mask;
+        else val = mbboD->val;
+        return streamPrintf (record, format, val);
     }
     return ERROR;
 }
 
 static long initRecord (dbCommon *record)
 {
-    boRecord *bo = (boRecord *) record;
+    mbboDirectRecord *mbboD = (mbboDirectRecord *) record;
 
-    return streamInitRecord (record, &bo->out, readData, writeData);
+    mbboD->mask <<= mbboD->shft;
+    return streamInitRecord (record, &mbboD->out, readData, writeData);
 }
 
 struct {
@@ -99,8 +75,8 @@ struct {
     DEVSUPFUN init;
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
-    DEVSUPFUN write_bo;
-} devBoStream = {
+    DEVSUPFUN write;
+} devmbboDirectStream = {
     5,
     streamReport,
     streamInit,
@@ -109,4 +85,4 @@ struct {
     streamWrite
 };
 
-epicsExportAddress(dset,devBoStream);
+epicsExportAddress(dset,devmbboDirectStream);

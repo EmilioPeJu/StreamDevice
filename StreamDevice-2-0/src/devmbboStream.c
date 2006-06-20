@@ -124,8 +124,8 @@ struct {
     DEVSUPFUN init;
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
-    DEVSUPFUN write_mbbo;
-} devMbboStream = {
+    DEVSUPFUN write;
+} devmbboStream = {
     5,
     streamReport,
     streamInit,
@@ -134,4 +134,4 @@ struct {
     streamWrite
 };
 
-epicsExportAddress(dset,devMbboStream);
+epicsExportAddress(dset,devmbboStream);

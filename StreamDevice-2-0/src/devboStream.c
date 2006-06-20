@@ -1,5 +1,5 @@
 /***************************************************************
-* Stream Device record interface for analog output records     *
+* Stream Device record interface for binary output records     *
 *                                                              *
 * (C) 1999 Dirk Zimoch (zimoch@delta.uni-dortmund.de)          *
 * (C) 2005 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
@@ -19,29 +19,45 @@
 ***************************************************************/
 
 #include <devStream.h>
-#include <aoRecord.h>
+#include <boRecord.h>
+#include <string.h>
 
 static long readData (dbCommon *record, format_t *format)
 {
-    aoRecord *ao = (aoRecord *) record;
+    boRecord *bo = (boRecord *) record;
+    unsigned long val;
 
     switch (format->type)
     {
-        case DBF_DOUBLE:
-        {
-            double val;
-            if (streamScanf (record, format, &val)) return ERROR;
-            if (ao->aslo != 0) val *= ao->aslo;
-            ao->val = val + ao->aoff;
-            return DO_NOT_CONVERT;
-        }
         case DBF_LONG:
         {
-            long rval;
-            if (streamScanf (record, format, &rval)) return ERROR;
-            ao->rbv = rval;
-            if (INIT_RUN) ao->rval = rval;
+            if (streamScanf (record, format, &val)) return ERROR;
+            if (bo->mask) val &= bo->mask;
+            bo->rbv = val;
+            if (INIT_RUN) bo->rval = val;
             return OK;
+        }
+        case DBF_ENUM:
+        {
+            if (streamScanf (record, format, &val)) return ERROR;
+            bo->val = (val != 0);
+            return DO_NOT_CONVERT;
+        }
+        case DBF_STRING:
+        {
+            char buffer[sizeof(bo->znam)];
+            if (streamScanfN (record, format, buffer, sizeof(buffer)))
+                return ERROR;
+            if (strcmp (bo->znam, buffer) == 0)
+            {
+                bo->val = 0;
+                return DO_NOT_CONVERT;
+            }
+            if (strcmp (bo->onam, buffer) == 0)
+            {
+                bo->val = 1;
+                return DO_NOT_CONVERT;
+            }
         }
     }
     return ERROR;
@@ -49,22 +65,22 @@ static long readData (dbCommon *record, format_t *format)
 
 static long writeData (dbCommon *record, format_t *format)
 {
-    aoRecord *ao = (aoRecord *) record;
-    double val;
+    boRecord *bo = (boRecord *) record;
 
     switch (format->type)
     {
-        case DBF_DOUBLE:
-        {
-            if (INIT_RUN) val = ao->val;
-            else val = ao->oval;
-            val -= ao->aoff;
-            if (ao->aslo != 0) val /= ao->aslo;
-            return streamPrintf (record, format, val);
-        }
         case DBF_LONG:
         {
-            return streamPrintf (record, format, ao->rval);
+            return streamPrintf (record, format, bo->rval);
+        }
+        case DBF_ENUM:
+        {
+            return streamPrintf (record, format, (long) bo->val);
+        }
+        case DBF_STRING:
+        {
+            return streamPrintf (record, format,
+                bo->val ? bo->onam : bo->znam);
         }
     }
     return ERROR;
@@ -72,9 +88,9 @@ static long writeData (dbCommon *record, format_t *format)
 
 static long initRecord (dbCommon *record)
 {
-    aoRecord *ao = (aoRecord *) record;
+    boRecord *bo = (boRecord *) record;
 
-    return streamInitRecord (record, &ao->out, readData, writeData);
+    return streamInitRecord (record, &bo->out, readData, writeData);
 }
 
 struct {
@@ -83,16 +99,14 @@ struct {
     DEVSUPFUN init;
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
-    DEVSUPFUN write_ao;
-    DEVSUPFUN special_linconv;
-} devAoStream = {
-    6,
+    DEVSUPFUN write;
+} devboStream = {
+    5,
     streamReport,
     streamInit,
     initRecord,
     streamGetIointInfo,
-    streamWrite,
-    NULL
+    streamWrite
 };
 
-epicsExportAddress(dset,devAoStream);
+epicsExportAddress(dset,devboStream);

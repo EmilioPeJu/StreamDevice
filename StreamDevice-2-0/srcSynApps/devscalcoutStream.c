@@ -1,8 +1,6 @@
 /***************************************************************
-* Stream Device record interface for long output records       *
+* Stream Device record interface for calcout records           *
 *                                                              *
-*                                                              *
-* (C) 1999 Dirk Zimoch (zimoch@delta.uni-dortmund.de)          *
 * (C) 2005 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
 *                                                              *
 * This is an EPICS record Interface for StreamDevice.          *
@@ -20,35 +18,74 @@
 ***************************************************************/
 
 #include <devStream.h>
-#include <longoutRecord.h>
+#include <sCalcoutRecord.h>
+
+/* scalcout record has a bug: it never calls init_record
+   of the device support.
+   Fix: sCalcoutRecord.c line 277 (end of init_record) add
+  
+        if(pscalcoutDSET->init_record ) {
+	    return (*pscalcoutDSET->init_record)(pcalc);
+        }
+
+*/
 
 static long readData (dbCommon *record, format_t *format)
 {
-    longoutRecord *lo = (longoutRecord *) record;
+    scalcoutRecord *sco = (scalcoutRecord *) record;
 
-    if (format->type == DBF_LONG || format->type == DBF_ENUM)
+    switch (format->type)
     {
-        return streamScanf (record, format, &lo->val);
+        case DBF_DOUBLE:
+        {
+            return streamScanf (record, format, &sco->val);
+        }
+        case DBF_LONG:
+        case DBF_ENUM:
+        {
+            long lval;
+
+            if (streamScanf (record, format, &lval)) return ERROR;
+            sco->val = lval;
+            return OK;
+        }
+        case DBF_STRING:
+        {
+            return (streamScanfN (record, format,
+                sco->sval, sizeof(sco->val)));
+        }
     }
     return ERROR;
 }
 
 static long writeData (dbCommon *record, format_t *format)
 {
-    longoutRecord *lo = (longoutRecord *) record;
+    scalcoutRecord *sco = (scalcoutRecord *) record;
 
-    if (format->type == DBF_LONG || format->type == DBF_ENUM)
+    switch (format->type)
     {
-        return streamPrintf (record, format, lo->val);
+        case DBF_DOUBLE:
+        {
+            return streamPrintf (record, format, sco->oval);
+        }
+        case DBF_LONG:
+        case DBF_ENUM:
+        {
+            return streamPrintf (record, format, (long)sco->oval);
+        }
+        case DBF_STRING:
+        {
+            return streamPrintf (record, format, sco->osv);
+        }
     }
     return ERROR;
 }
 
 static long initRecord (dbCommon *record)
 {
-    longoutRecord *lo = (longoutRecord *) record;
+    scalcoutRecord *sco = (scalcoutRecord *) record;
 
-    return streamInitRecord (record, &lo->out, readData, writeData);
+    return streamInitRecord (record, &sco->out, readData, writeData);
 }
 
 struct {
@@ -57,14 +94,14 @@ struct {
     DEVSUPFUN init;
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
-    DEVSUPFUN write_longout;
-} devLoStream = {
+    DEVSUPFUN write;
+} devscalcoutStream = {
     5,
     streamReport,
     streamInit,
     initRecord,
     streamGetIointInfo,
-    streamWrite
+    streamWrite,
 };
 
-epicsExportAddress(dset,devLoStream);
+epicsExportAddress(dset,devscalcoutStream);

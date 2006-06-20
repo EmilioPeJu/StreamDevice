@@ -125,6 +125,7 @@ protected:
     unsigned long flags;
 
     bool attachBus(const char* busname, int addr, const char* param);
+    void releaseBus();
 
     bool startProtocol(StartMode);
     void finishProtocol(ProtocolResult);
@@ -164,6 +165,7 @@ protected:
     StreamBuffer inputLine;
     long consumedInput;
     ProtocolResult runningHandler;
+    StreamBuffer fieldAddress;
 
     StreamBusInterface::IoStatus lastInputStatus;
     bool unparsedInput;

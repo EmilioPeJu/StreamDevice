@@ -1,5 +1,6 @@
 /***************************************************************
-* Stream Device record interface for string output records     *
+* Stream Device record interface for long output records       *
+*                                                              *
 *                                                              *
 * (C) 1999 Dirk Zimoch (zimoch@delta.uni-dortmund.de)          *
 * (C) 2005 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
@@ -19,35 +20,35 @@
 ***************************************************************/
 
 #include <devStream.h>
-#include <stringoutRecord.h>
+#include <longoutRecord.h>
 
 static long readData (dbCommon *record, format_t *format)
 {
-    stringoutRecord *so = (stringoutRecord *) record;
+    longoutRecord *lo = (longoutRecord *) record;
 
-    if (format->type == DBF_STRING)
+    if (format->type == DBF_LONG || format->type == DBF_ENUM)
     {
-        return streamScanfN (record, format, so->val, sizeof(so->val));
+        return streamScanf (record, format, &lo->val);
     }
     return ERROR;
 }
 
 static long writeData (dbCommon *record, format_t *format)
 {
-    stringoutRecord *so = (stringoutRecord *) record;
+    longoutRecord *lo = (longoutRecord *) record;
 
-    if (format->type == DBF_STRING)
+    if (format->type == DBF_LONG || format->type == DBF_ENUM)
     {
-        return streamPrintf (record, format, so->val);
+        return streamPrintf (record, format, lo->val);
     }
     return ERROR;
 }
 
 static long initRecord (dbCommon *record)
 {
-    stringoutRecord *so = (stringoutRecord *) record;
+    longoutRecord *lo = (longoutRecord *) record;
 
-    return streamInitRecord (record, &so->out, readData, writeData);
+    return streamInitRecord (record, &lo->out, readData, writeData);
 }
 
 struct {
@@ -56,8 +57,8 @@ struct {
     DEVSUPFUN init;
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
-    DEVSUPFUN write_stringout;
-} devSoStream = {
+    DEVSUPFUN write;
+} devlongoutStream = {
     5,
     streamReport,
     streamInit,
@@ -66,4 +67,4 @@ struct {
     streamWrite
 };
 
-epicsExportAddress(dset,devSoStream);
+epicsExportAddress(dset,devlongoutStream);

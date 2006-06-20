@@ -1,5 +1,6 @@
 /***************************************************************
-* Stream Device record interface for binary input records      *
+* StreamDevice record interface for                            *
+* multibit binary input direct records                         *
 *                                                              *
 * (C) 1999 Dirk Zimoch (zimoch@delta.uni-dortmund.de)          *
 * (C) 2005 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
@@ -19,44 +20,27 @@
 ***************************************************************/
 
 #include <devStream.h>
-#include <biRecord.h>
-#include <string.h>
+#include <mbbiDirectRecord.h>
 
 static long readData (dbCommon *record, format_t *format)
 {
-    biRecord *bi = (biRecord *) record;
-    unsigned long val;
+    mbbiDirectRecord *mbbiD = (mbbiDirectRecord *) record;
+    long val;
 
-    switch (format->type)
+    if (format->type == DBF_LONG)
     {
-        case DBF_LONG:
+        if (streamScanf (record, format, &val)) return ERROR;
+        if (mbbiD->mask)
         {
-            if (streamScanf (record, format, &val)) return ERROR;
-            if (bi->mask) val &= bi->mask;
-            bi->rval = val;
+            val &= mbbiD->mask;
+            mbbiD->rval = val;
             return OK;
         }
-        case DBF_ENUM:
+        else
         {
-            if (streamScanf (record, format, &val)) return ERROR;
-            bi->val = (val != 0);
+            /* No MASK, (NOBT = 0): use VAL field */
+            mbbiD->val = val;
             return DO_NOT_CONVERT;
-        }
-        case DBF_STRING:
-        {
-            char buffer[sizeof(bi->znam)];
-            if (streamScanfN (record, format, buffer, sizeof(buffer)))
-                return ERROR;
-            if (strcmp (bi->znam, buffer) == 0)
-            {
-                bi->val = 0;
-                return DO_NOT_CONVERT;
-            }
-            if (strcmp (bi->onam, buffer) == 0)
-            {
-                bi->val = 1;
-                return DO_NOT_CONVERT;
-            }
         }
     }
     return ERROR;
@@ -64,32 +48,24 @@ static long readData (dbCommon *record, format_t *format)
 
 static long writeData (dbCommon *record, format_t *format)
 {
-    biRecord *bi = (biRecord *) record;
+    mbbiDirectRecord *mbbiD = (mbbiDirectRecord *) record;
+    long val;
 
-    switch (format->type)
+    if (format->type == DBF_LONG)
     {
-        case DBF_LONG:
-        {
-            return streamPrintf (record, format, bi->rval);
-        }
-        case DBF_ENUM:
-        {
-            return streamPrintf (record, format, (long) bi->val);
-        }
-        case DBF_STRING:
-        {
-            return streamPrintf (record, format,
-                bi->val ? bi->onam : bi->znam);
-        }
+        if (mbbiD->mask) val = mbbiD->rval & mbbiD->mask;
+        else val = mbbiD->val;
+        return streamPrintf (record, format, val);
     }
     return ERROR;
 }
 
 static long initRecord (dbCommon *record)
 {
-    biRecord *bi = (biRecord *) record;
+    mbbiDirectRecord *mbbiD = (mbbiDirectRecord *) record;
 
-    return streamInitRecord (record, &bi->inp, readData, writeData);
+    mbbiD->mask <<= mbbiD->shft;
+    return streamInitRecord (record, &mbbiD->inp, readData, writeData);
 }
 
 struct {
@@ -98,8 +74,8 @@ struct {
     DEVSUPFUN init;
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
-    DEVSUPFUN read_mbbi;
-} devBiStream = {
+    DEVSUPFUN read;
+} devmbbiDirectStream = {
     5,
     streamReport,
     streamInit,
@@ -108,4 +84,4 @@ struct {
     streamRead
 };
 
-epicsExportAddress(dset,devBiStream);
+epicsExportAddress(dset,devmbbiDirectStream);

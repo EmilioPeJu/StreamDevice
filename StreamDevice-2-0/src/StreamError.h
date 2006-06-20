@@ -28,6 +28,7 @@
 
 extern int streamDebug;
 extern FILE* StreamDebugFile;
+extern void (*StreamPrintTimestampFunction)(FILE* file);
 
 void StreamError(const char* fmt, ...)
 __attribute__ ((format(printf,1,2)));

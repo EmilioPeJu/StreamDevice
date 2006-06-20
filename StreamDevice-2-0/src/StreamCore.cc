@@ -123,12 +123,6 @@ StreamCore* StreamCore::first = NULL;
 StreamCore::
 StreamCore()
 {
-    lockTimeout = 5000;
-    readTimeout = 100;
-    replyTimeout = 1000;
-    pollPeriod = 1000;
-    writeTimeout = 100;
-    maxInput = 0;
     businterface = NULL;
     flags = None;
     next = NULL;
@@ -142,18 +136,10 @@ StreamCore()
 StreamCore::
 ~StreamCore()
 {
-    if (businterface)
-    {
-        if (flags & BusOwner)
-        {
-            busUnlock();
-        }
-        busRelease();
-        businterface = NULL;
-    }
-
-    StreamCore** pstream;
+    debug("~StreamCore(%s) %p\n", name(), this);
+    releaseBus();
     // remove myself from list of all streams
+    StreamCore** pstream;
     for (pstream = &first; *pstream; pstream = &(*pstream)->next)
     {
         if (*pstream == this)
@@ -167,6 +153,7 @@ StreamCore::
 bool StreamCore::
 attachBus(const char* busname, int addr, const char* param)
 {
+    releaseBus();
     businterface = StreamBusInterface::find(this, busname, addr, param);
     if (!businterface)
     {
@@ -177,6 +164,20 @@ attachBus(const char* busname, int addr, const char* param)
     debug("StreamCore::attachBus(busname=\"%s\", addr=%i, param=\"%s\") businterface=%p\n",
         busname, addr, param, businterface);
     return true;
+}
+
+void StreamCore::
+releaseBus()
+{
+    if (businterface)
+    {
+        if (flags & BusOwner)
+        {
+            busUnlock();
+        }
+        busRelease();
+        businterface = NULL;
+    }
 }
 
 // Parse the protocol
@@ -224,6 +225,15 @@ compile(StreamProtocolParser::Protocol* protocol)
 {
     const char* extraInputNames [] = {"error", "ignore", NULL};
 
+    // default values for protocol variables
+    flags &= ~IgnoreExtraInput;
+    lockTimeout = 5000;
+    readTimeout = 100;
+    replyTimeout = 1000;
+    writeTimeout = 100;
+    maxInput = 0;
+    pollPeriod = 1000;
+    
     unsigned short ignoreExtraInput = false;
     if (!protocol->getEnumVariable("extrainput", ignoreExtraInput,
         extraInputNames))
@@ -363,7 +373,7 @@ startProtocol(StartMode startMode)
         startMode == StartAsync ? "StartAsync" : "Invalid");
     if (!businterface)
     {
-        error("%s: no businterface attached\n", name());
+        error("%s: No businterface attached\n", name());
         return false;
     }
     flags &= ~ClearOnStart;
@@ -375,13 +385,18 @@ startProtocol(StartMode startMode)
         case StartAsync:
             if (!busSupportsAsyncRead())
             {
-                error("%s: businterface does not support async mode\n", name());
+                error("%s: Businterface does not support async mode\n", name());
                 return false;
             }
             flags |= AsyncMode;
             break;
         case StartNormal:
             break;
+    }
+    if (!commands)
+    {
+        error ("%s: No protocol loaded\n", name());
+        return false;
     }
     commandIndex = (startMode == StartInit) ? onInit() : commands();
     runningHandler = Success;
@@ -550,7 +565,6 @@ bool StreamCore::
 formatOutput()
 {
     char command;
-    const void* fieldAddress = NULL;
     const char* fieldName = NULL;
     const char* formatstring;
     while ((command = *commandIndex++) != StreamProtocolParser::eos)
@@ -562,12 +576,12 @@ formatOutput()
                 debug("StreamCore::formatOutput(%s): StreamProtocolParser::format_field\n",
                     name());
                 // code layout:
-                // field <StreamProtocolParser::eos> addrLength AddressStructure formatstring <StreamProtocolParser::eos> StreamFormat [info]
+                // field <StreamProtocolParser::eos> addrlen AddressStructure formatstring <StreamProtocolParser::eos> StreamFormat [info]
                 fieldName = commandIndex;
                 commandIndex += strlen(commandIndex)+1;
-                unsigned short length = extract<unsigned short>(commandIndex);
-                fieldAddress = commandIndex;
-                commandIndex += length;
+                unsigned short addrlen = extract<unsigned short>(commandIndex);
+                fieldAddress.set(commandIndex, addrlen);
+                commandIndex += addrlen;
             }
             case StreamProtocolParser::format:
             {
@@ -592,7 +606,7 @@ formatOutput()
                     continue;
                 }
                 flags &= ~Separator;
-                if (!formatValue(fmt, fieldAddress))
+                if (!formatValue(fmt, fieldAddress ? fieldAddress() : NULL))
                 {
                     if (fieldName)
                         error("%s: Can't format field '%s' with '%%%s'\n",
@@ -602,7 +616,7 @@ formatOutput()
                             name(), formatstring);
                     return false;
                 }
-                fieldAddress = NULL;
+                fieldAddress.clear();
                 fieldName = NULL;
                 continue;
             }
@@ -817,7 +831,8 @@ readCallback(StreamBusInterface::IoStatus status,
                 evalIn();
                 return 0;
             }
-            error("%s: No reply from device\n", name());
+            error("%s: No reply from device within %ld ms\n",
+                name(), replyTimeout);
             inputBuffer.clear();
             finishProtocol(ReplyTimeout);
             return 0;
@@ -886,9 +901,12 @@ readCallback(StreamBusInterface::IoStatus status,
         }
         // try to parse what we got
         end = inputBuffer.length();
-        error("%s: Timeout after reading %ld bytes \"%s%s\"\n",
-            name(), end, end > 20 ? "..." : "",
-            inputBuffer.expand(-20)());
+        if (!(flags & AsyncMode))
+        {
+            error("%s: Timeout after reading %ld bytes \"%s%s\"\n",
+                name(), end, end > 20 ? "..." : "",
+                inputBuffer.expand(-20)());
+        }
     }
 
     inputLine.set(inputBuffer(), end);
@@ -934,7 +952,6 @@ bool StreamCore::
 matchInput()
 {
     char command;
-    const void* fieldAddress = NULL;
     const char* formatstring;
     
     consumedInput = 0;
@@ -949,7 +966,7 @@ matchInput()
                 // field <StreamProtocolParser::eos> addrlen AddressStructure formatstring <StreamProtocolParser::eos> StreamFormat [info]
                 commandIndex += strlen(commandIndex)+1;
                 unsigned short addrlen = extract<unsigned short>(commandIndex);
-                fieldAddress = commandIndex;
+                fieldAddress.set(commandIndex, addrlen);
                 commandIndex += addrlen;
             }
             case StreamProtocolParser::format:
@@ -1007,7 +1024,7 @@ matchInput()
                     break;
                 }
                 flags &= ~Separator;
-                if (!matchValue(fmt, fieldAddress))
+                if (!matchValue(fmt, fieldAddress ? fieldAddress() : NULL))
                 {
                     if (!(flags & AsyncMode))
                     {
@@ -1048,11 +1065,14 @@ matchInput()
                 if (command != inputLine[consumedInput])
                 {
                     if (!(flags & AsyncMode))
-                        error("%s: Input \"%s%s\" does not match pattern byte \"%s\"\n",
-                        name(),
-                        inputLine.expand(consumedInput,20)(),
-                        inputLine.length()-consumedInput > 20 ? "..." : "",
-                        StreamBuffer(&command,1).expand()());
+                    {
+                        int i = 0;
+                        while (commandIndex[i] >= ' ') i++;
+                        error("%s: Byte %ld in \"%s\" does not match expected \"%s\"\n",
+                        name(), consumedInput,
+                        inputLine.expand()(),
+                        StreamBuffer(commandIndex-1,i+1).expand()());
+                    }
                     return false;
                 }
                 consumedInput++;
@@ -1171,8 +1191,10 @@ scanValue(const StreamFormat& fmt, char* value, long maxlen)
         name(), fmt.conv, maxlen, inputLine.expand(consumedInput)());
     if (consumed < 0 ||
         consumed > inputLine.length()-consumedInput) return -1;
+#ifndef NO_TEMPORARY
     debug("StreamCore::scanValue(%s) scanned \"%s\"\n",
-        name(), value);
+        name(), StreamBuffer(value, consumed).expand()());
+#endif
     flags |= GotValue;
     return consumed;
 }

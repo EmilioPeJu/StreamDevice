@@ -1,6 +1,7 @@
 /***************************************************************
-* Stream Device record interface for calcout records           *
+* Stream Device record interface for binary input records      *
 *                                                              *
+* (C) 1999 Dirk Zimoch (zimoch@delta.uni-dortmund.de)          *
 * (C) 2005 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
 *                                                              *
 * This is an EPICS record Interface for StreamDevice.          *
@@ -18,28 +19,44 @@
 ***************************************************************/
 
 #include <devStream.h>
-#include <calcoutRecord.h>
-
-#if (EPICS_VERSION==3 && EPICS_REVISION>=14)
+#include <biRecord.h>
+#include <string.h>
 
 static long readData (dbCommon *record, format_t *format)
 {
-    calcoutRecord *co = (calcoutRecord *) record;
+    biRecord *bi = (biRecord *) record;
+    unsigned long val;
 
     switch (format->type)
     {
-        case DBF_DOUBLE:
-        {
-            return streamScanf (record, format, &co->val);
-        }
         case DBF_LONG:
+        {
+            if (streamScanf (record, format, &val)) return ERROR;
+            if (bi->mask) val &= bi->mask;
+            bi->rval = val;
+            return OK;
+        }
         case DBF_ENUM:
         {
-            long lval;
-
-            if (streamScanf (record, format, &lval)) return ERROR;
-            co->val = lval;
-            return OK;
+            if (streamScanf (record, format, &val)) return ERROR;
+            bi->val = (val != 0);
+            return DO_NOT_CONVERT;
+        }
+        case DBF_STRING:
+        {
+            char buffer[sizeof(bi->znam)];
+            if (streamScanfN (record, format, buffer, sizeof(buffer)))
+                return ERROR;
+            if (strcmp (bi->znam, buffer) == 0)
+            {
+                bi->val = 0;
+                return DO_NOT_CONVERT;
+            }
+            if (strcmp (bi->onam, buffer) == 0)
+            {
+                bi->val = 1;
+                return DO_NOT_CONVERT;
+            }
         }
     }
     return ERROR;
@@ -47,18 +64,22 @@ static long readData (dbCommon *record, format_t *format)
 
 static long writeData (dbCommon *record, format_t *format)
 {
-    calcoutRecord *co = (calcoutRecord *) record;
+    biRecord *bi = (biRecord *) record;
 
     switch (format->type)
     {
-        case DBF_DOUBLE:
-        {
-            return streamPrintf (record, format, co->oval);
-        }
         case DBF_LONG:
+        {
+            return streamPrintf (record, format, bi->rval);
+        }
         case DBF_ENUM:
         {
-            return streamPrintf (record, format, (long)co->oval);
+            return streamPrintf (record, format, (long) bi->val);
+        }
+        case DBF_STRING:
+        {
+            return streamPrintf (record, format,
+                bi->val ? bi->onam : bi->znam);
         }
     }
     return ERROR;
@@ -66,9 +87,9 @@ static long writeData (dbCommon *record, format_t *format)
 
 static long initRecord (dbCommon *record)
 {
-    calcoutRecord *co = (calcoutRecord *) record;
+    biRecord *bi = (biRecord *) record;
 
-    return streamInitRecord (record, &co->out, readData, writeData);
+    return streamInitRecord (record, &bi->inp, readData, writeData);
 }
 
 struct {
@@ -77,18 +98,14 @@ struct {
     DEVSUPFUN init;
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
-    DEVSUPFUN write_co;
-    DEVSUPFUN special_linconv;
-} devCalcoutStream = {
-    6,
+    DEVSUPFUN read;
+} devbiStream = {
+    5,
     streamReport,
     streamInit,
     initRecord,
     streamGetIointInfo,
-    streamWrite,
-    NULL
+    streamRead
 };
 
-epicsExportAddress(dset,devCalcoutStream);
-
-#endif
+epicsExportAddress(dset,devbiStream);

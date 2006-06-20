@@ -1,5 +1,0 @@
-include "base.dbd"
-include "asyn.dbd"
-include "stream.dbd"
-registrar(drvAsynIPPortRegisterCommands)
-registrar(drvAsynSerialPortRegisterCommands)

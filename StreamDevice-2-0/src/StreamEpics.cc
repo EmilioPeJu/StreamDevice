@@ -38,6 +38,7 @@
 #include <epicsTimer.h>
 #include <epicsMutex.h>
 #include <epicsEvent.h>
+#include <epicsTime.h>
 #include <registryFunction.h>
 
 #include <iocsh.h>
@@ -50,9 +51,9 @@
 #endif
 
 enum MoreFlags {
-    // 0x0000FFFF used by StreamCore
-    InDestructor  = 0x0001000,
-    ValueReceived = 0x0002000
+    // 0x00FFFFFF used by StreamCore
+    InDestructor  = 0x0100000,
+    ValueReceived = 0x0200000
 };
 
 extern "C" void streamExecuteCommand(CALLBACK *pcallback);
@@ -96,8 +97,7 @@ class Stream : protected StreamCore, epicsTimerNotify
 // Stream Epics methods
     long initRecord();
     Stream(dbCommon* record, struct link *ioLink,
-        streamIoFunction readData, streamIoFunction writeData,
-        IOSCANPVT ioscanpvt);
+        streamIoFunction readData, streamIoFunction writeData);
     ~Stream();
     bool print(format_t *format, va_list ap);
     bool scan(format_t *format, void* pvalue, size_t maxStringSize);
@@ -173,9 +173,11 @@ long streamReload(char* recordname)
 
             // This cancels any running protocol and reloads
             // the protocol file
-            record->dset->init_record(record);
-
-            printf("%s: protocol reloaded\n", record->name);
+            status = record->dset->init_record(record);
+            if (status == OK || status == DO_NOT_CONVERT)
+            {
+                printf("%s: Protocol reloaded\n", record->name);
+            }
         }
     }
     dbFinishEntry(&dbentry);
@@ -222,6 +224,15 @@ struct {
 
 epicsExportAddress(drvet, stream);
 
+void streamEpicsPrintTimestamp(FILE* file)
+{
+    char buffer [40];
+    epicsTimeStamp tm;
+    epicsTimeGetCurrent (&tm);
+    epicsTimeToStrftime(buffer, 40, "%Y/%m/%d %H:%M:%S ", &tm);
+    fprintf(file, buffer);
+}
+
 long Stream::
 report(int interest)
 {
@@ -253,6 +264,7 @@ report(int interest)
                 pstream->ioLink->value.instio.string);
         }
     }
+    StreamPrintTimestampFunction = streamEpicsPrintTimestamp;
     return OK;
 }
 
@@ -287,6 +299,7 @@ drvInit()
     }
     debug("StreamProtocolParser::path = %s\n",
         StreamProtocolParser::path);
+    StreamPrintTimestampFunction = streamEpicsPrintTimestamp;
     return OK;
 }
 
@@ -305,34 +318,26 @@ long streamInitRecord(dbCommon* record, struct link *ioLink,
     streamIoFunction readData, streamIoFunction writeData)
 {
     debug("streamInitRecord(%s): SEVR=%d\n", record->name, record->sevr);
-    IOSCANPVT ioscanpvt = NULL;
     Stream* pstream = (Stream*)record->dpvt;
-    record->dpvt = NULL;
-    if (pstream)
+    if (!pstream)
     {
-        // we have been called by streamReload
-        // keep old ioscanpvt
-        // but delete old stream
-        ioscanpvt = pstream->ioscanpvt;
-        if (record->pact) pstream->finishProtocol(Stream::Abort);
-        pstream->ioscanpvt = NULL;
-        debug("streamInitRecord(%s): deleting old stream. ioscanpvt=%p\n",
-            record->name, ioscanpvt);
-        delete pstream;
+        // initialize the first time
+        pstream = new Stream(record, ioLink, readData, writeData);
+        record->dpvt = pstream;
+    } else {
+        // stop any running protocol
+        pstream->finishProtocol(Stream::Abort);
     }
-    debug("streamInitRecord(%s): creating new stream (ioscanpvt=%p)\n",
-        record->name, ioscanpvt);
-    pstream = new Stream(record, ioLink, readData, writeData, ioscanpvt);
+    // (re)initialize bus and protocol
     long status = pstream->initRecord();
     if (status != OK && status != DO_NOT_CONVERT)
     {
-        error("%s: streamInitRecord failed\n", record->name);
-        delete pstream;
-        debug("streamInitRecord(%s): stream object deleted\n",
-            record->name);
-        return status;
+        error("%s: Record initialization failed\n", record->name);
     }
-    record->dpvt = pstream;
+    if (!pstream->ioscanpvt)
+    {
+        scanIoInit(&pstream->ioscanpvt);
+    }
     return status;
 }
 
@@ -350,19 +355,23 @@ long streamReadWrite(dbCommon *record)
 
 long streamGetIointInfo(int cmd, dbCommon *record, IOSCANPVT *ppvt)
 {
-    debug("streamGetIointInfo(%s,cmd=%d)\n",
-        record->name, cmd);
     Stream* pstream = (Stream*)record->dpvt;
-    if (!pstream) return ERROR;
+    debug("streamGetIointInfo(%s,cmd=%d): pstream=%p, ioscanpvt=%p\n",
+        record->name, cmd, pstream, pstream ? pstream->ioscanpvt : NULL);
+    if (!pstream)
+    {
+        error("streamGetIointInfo called without stream instance\n");
+        return ERROR;
+    }
     *ppvt = pstream->ioscanpvt;
     if (cmd == 0)
     {
+        debug("streamGetIointInfo: starting protocol\n");
         /* SCAN has been set to "I/O Intr" */
         if (!pstream->startProtocol(Stream::StartAsync))
         {
             error("%s: Can't start \"I/O Intr\" protocol\n",
                 record->name);
-            return ERROR;
         }
     }
     else
@@ -417,24 +426,23 @@ long streamScanfN(dbCommon* record, format_t *format,
 
 Stream::
 Stream(dbCommon* _record, struct link *ioLink,
-    streamIoFunction readData, streamIoFunction writeData,
-    IOSCANPVT ioscanpvt)
-:record(_record), ioLink(ioLink), readData(readData), writeData(writeData),
-    ioscanpvt(ioscanpvt)
+    streamIoFunction readData, streamIoFunction writeData)
+:record(_record), ioLink(ioLink), readData(readData), writeData(writeData)
 {
     streamname = record->name;
     timerQueue = &epicsTimerQueueActive::allocate(true);
     timer = &timerQueue->createTimer();
     status = ERROR;
     convert = DO_NOT_CONVERT;
+    ioscanpvt = NULL;
 }
 
 Stream::
 ~Stream()
 {
-    debug ("Stream destructor\n");
+    lockMutex();
     flags |= InDestructor;;
-    debug("~Stream(%s)\n", name());
+    debug("~Stream(%s) %p\n", name(), this);
     if (record->dpvt)
     {
         finishProtocol(Abort);
@@ -447,36 +455,47 @@ Stream::
     debug("~Stream(%s): timer destroyed\n", name());
     timerQueue->release();
     debug("~Stream(%s): timer queue released\n", name());
+    releaseMutex();
 }
 
 long Stream::
 initRecord()
 {
     // scan link parameters: filename protocol busname addr busparam
+    // It is safe to call this function again with different
+    // link text or different protocol file.
+    
     char filename[80];
     char protocol[80];
     char busname[80];
     int addr = -1;
     char busparam[80];
-    int n=0;
+    int n;
+    
     if (ioLink->type != INST_IO)
     {
         error("%s: Wrong link type %s\n", name(),
             pamaplinkType[ioLink->type].strvalue);
-        return ERROR;
+        return S_dev_badInitRet;
     }
     int items = sscanf(ioLink->value.instio.string, "%79s%79s%79s%n%i%n",
         filename, protocol, busname, &n, &addr, &n);
+    if (items <= 0)
+    {
+        error("%s: Empty link. Forgot the leading '@' or confused INP with OUT ?\n",
+            name());
+        return S_dev_badInitRet;
+    }
     if (items < 3)
     {
         error("%s: Wrong link format\n"
-            "  expect \"file protocol bus addr params\"\n"
-            "  in \"%s\"\n", name(),
+            "  expect \"@file protocol bus addr params\"\n"
+            "  in \"@%s\"\n", name(),
             ioLink->value.instio.string);
         return S_dev_badInitRet;
     }
     memset(busparam, 0 ,80);
-    while (isspace((unsigned char)ioLink->value.instio.string[n])) n++;
+    for (n = 0; isspace((unsigned char)ioLink->value.instio.string[n]); n++);
     strncpy (busparam, ioLink->value.constantStr+n, 79);
 
     // attach to bus interface
@@ -518,8 +537,6 @@ initRecord()
 
     debug("Stream::initRecord %s: initialize the first time\n",
         name());
-    // initialize the first time
-    scanIoInit(&ioscanpvt);
 
     if (!onInit) return DO_NOT_CONVERT; // no @init handler, keep DOL
 
@@ -540,7 +557,7 @@ initRecord()
     if (status != NO_ALARM)
     {
         record->stat = status;
-        error("%s: Initializing record from hardware failed!\n",
+        error("%s: @init handler failed\n",
             name());
         return ERROR;
     }
@@ -723,7 +740,7 @@ protocolFinishHook(ProtocolResult result)
         debug("Stream::protocolFinishHook(stream=%s,result=%d) done.\n",
             name(), result);
     }
-    if ((record->scan == SCAN_IO_EVENT))
+    if (result != Abort && record->scan == SCAN_IO_EVENT)
     {
         // restart protocol for next turn
         debug("Stream::process(%s) restart async protocol\n",
