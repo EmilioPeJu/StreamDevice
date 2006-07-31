@@ -18,8 +18,8 @@ TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
 #SNCSEQ=$(EPICS_BASE)/../modules/soft/seq
 
 # EPICS_BASE usually appears last so other apps can override stuff:
-ASYN=/home/diamond/R3.14.7/prod/support/asyn/4-3
-EPICS_BASE=/home/epics/R3.14.7/base
+ASYN=/home/diamond/R3.14.8.2/prod/support/asyn/4-6
+EPICS_BASE=/home/epics/R3.14.8.2/base
 
 #Capfast users may need the following definitions
 #CAPFAST_TEMPLATES=
