@@ -30,8 +30,8 @@ A format converter consists of
  <li>Optionally a field name in <code>()</code></li>
  <li>Optionally flags out of the characters <code>*# +0-</code></li>
  <li>Optionally an integer <em>width</em> field</li>
- <li>In outputs optionally a period character (<code>.</code>) followed
-     by an integer <em>precision</em> field</li>
+ <li>Optionally a period character (<code>.</code>) followed
+     by an integer <em>precision</em> field (input ony for most formats)</li>
  <li>A conversion character</li>
  <li>Additional information required by some conversion characters</li>
 </ul>
@@ -100,10 +100,16 @@ Refer to the description of <a href="recordtypes.html">supported record
 types</a> for details.
 </p>
 <p>
-To use other record fields in the conversion, write the field name in
-parentheses directly after the <code>%</code>.
+To use other fields or even fields of other records on the same IOC in the 
+conversion, write the field name in parentheses directly after the
+<code>%</code>.
 For example <code>out&nbsp;"%(EGU)s";</code> outputs the <code>EGU</code>
-field formatted as a string. 
+field formatted as a string.
+Use <code>in&nbsp;"%(<i>otherrecord</i>.VAL)f";</code> to write the floating
+point input value into the <code>VAL</code> field of
+<code><i>otherrecord</i></code>.
+This does not process <code><i>otherrecord</i></code>!
+Set the <code>FLNK</code> to that record to process it.
 It is your responsibility that the data type of the record field matches
 the data type of the conversion or can be converted to a matching type.
 Note that using this syntax is by far not as efficient as using the
@@ -136,7 +142,7 @@ exponential depending on the magnitude of the value.
 With the <code>#</code> flag, output always contains a period character.
 </p>
 <p>
-In input all these formats are equivalent.
+In input, all these formats are equivalent.
 Leading whitespaces are skipped.
 </p>
 
@@ -305,7 +311,10 @@ The <em>width</em> field is the byte number from which to start
 calculating the checksum.
 Default is 0, i.e. the first byte of the input or output of the current
 command.
-The last byte is the byte before the checksum.
+The last byte is <em>prec</em> bytes before the checksum (default 0).
+For example in <code>"abcdefg%&lt;xor&gt;"</code> the checksum is calculated
+from <code>abcdefg</code>,
+but in <code>"abcdefg%2.1&lt;xor&gt;"</code> only from <code>cdef</code>.
 Normally, multi-byte checksums are in <em>big endian</em> byteorder,
 i.e. most significant byte first.
 With the <code>#</code> flag, the byte order is changed to <em>little

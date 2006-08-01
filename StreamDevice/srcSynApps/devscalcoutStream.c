@@ -19,6 +19,7 @@
 
 #include <devStream.h>
 #include <sCalcoutRecord.h>
+#include <epicsExport.h>
 
 /* scalcout record has a bug: it never calls init_record
    of the device support.

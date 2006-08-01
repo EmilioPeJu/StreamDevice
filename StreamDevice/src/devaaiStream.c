@@ -1,8 +1,8 @@
 /***************************************************************
-* StreamDevice record interface for waveform records           *
+* StreamDevice record interface for aai records                *
 *                                                              *
 * (C) 1999 Dirk Zimoch (zimoch@delta.uni-dortmund.de)          *
-* (C) 2005 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
+* (C) 2006 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
 *                                                              *
 * This is an EPICS record Interface for StreamDevice.          *
 * Please refer to the HTML files in ../doc/ for a detailed     *
@@ -18,19 +18,19 @@
 *                                                              *
 ***************************************************************/
 
-#include <devStream.h>
-#include <waveformRecord.h>
 #include <string.h>
+#include <stdlib.h>
+#include <devStream.h>
+#include <aaiRecord.h>
 #include <epicsExport.h>
 
 static long readData (dbCommon *record, format_t *format)
 {
-    waveformRecord *wf = (waveformRecord *) record;
+    aaiRecord *aai = (aaiRecord *) record;
     double dval;
     long lval;
 
-    wf->rarm = 0;
-    for (wf->nord = 0; wf->nord < wf->nelm; wf->nord++)
+    for (aai->nord = 0; aai->nord < aai->nelm; aai->nord++)
     {
         switch (format->type)
         {
@@ -38,20 +38,20 @@ static long readData (dbCommon *record, format_t *format)
             {
                 if (streamScanf (record, format, &dval) != OK)
                 {
-                    return wf->nord ? OK : ERROR;
+                    return aai->nord ? OK : ERROR;
                 }
-                switch (wf->ftvl)
+                switch (aai->ftvl)
                 {
                     case DBF_DOUBLE:
-                        ((double *)wf->bptr)[wf->nord] = dval;
+                        ((double *)aai->bptr)[aai->nord] = dval;
                         break;
                     case DBF_FLOAT:
-                        ((float *)wf->bptr)[wf->nord] = (float)dval;
+                        ((float *)aai->bptr)[aai->nord] = (float)dval;
                         break;
                     default:
                         errlogSevPrintf (errlogFatal,
                             "readData %s: can't convert from double to %s\n",
-                            record->name, pamapdbfType[wf->ftvl].strvalue);
+                            record->name, pamapdbfType[aai->ftvl].strvalue);
                         return ERROR;
                 }
                 break;
@@ -61,68 +61,68 @@ static long readData (dbCommon *record, format_t *format)
             {
                 if (streamScanf (record, format, &lval) != OK)
                 {
-                    return wf->nord ? OK : ERROR;
+                    return aai->nord ? OK : ERROR;
                 }
-                switch (wf->ftvl)
+                switch (aai->ftvl)
                 {
                     case DBF_DOUBLE:
-                        ((double *)wf->bptr)[wf->nord] = (double)lval;
+                        ((double *)aai->bptr)[aai->nord] = lval;
                         break;
                     case DBF_FLOAT:
-                        ((float *)wf->bptr)[wf->nord] = (float)lval;
+                        ((float *)aai->bptr)[aai->nord] = (float)lval;
                         break;
                     case DBF_LONG:
                     case DBF_ULONG:
-                        ((long *)wf->bptr)[wf->nord] = lval;
+                        ((long *)aai->bptr)[aai->nord] = lval;
                         break;
                     case DBF_SHORT:
                     case DBF_USHORT:
                     case DBF_ENUM:
-                        ((short *)wf->bptr)[wf->nord] = (short)lval;
+                        ((short *)aai->bptr)[aai->nord] = (short)lval;
                         break;
                     case DBF_CHAR:
                     case DBF_UCHAR:
-                        ((char *)wf->bptr)[wf->nord] = (char)lval;
+                        ((char *)aai->bptr)[aai->nord] = (char)lval;
                         break;
                     default:
                         errlogSevPrintf (errlogFatal,
                             "readData %s: can't convert from long to %s\n",
-                            record->name, pamapdbfType[wf->ftvl].strvalue);
+                            record->name, pamapdbfType[aai->ftvl].strvalue);
                         return ERROR;
                 }
                 break;
             }
             case DBF_STRING:
             {
-                switch (wf->ftvl)
+                switch (aai->ftvl)
                 {
                     case DBF_STRING:
                         if (streamScanfN (record, format,
-                            (char *)wf->bptr + wf->nord * MAX_STRING_SIZE,
+                            (char *)aai->bptr + aai->nord * MAX_STRING_SIZE,
                             MAX_STRING_SIZE) != OK)
                         {
-                            return wf->nord ? OK : ERROR;
+                            return aai->nord ? OK : ERROR;
                         }
                         break;
                     case DBF_CHAR:
                     case DBF_UCHAR:
-                        memset (wf->bptr, 0, wf->nelm);
-                        wf->nord = 0;
+                        memset (aai->bptr, 0, aai->nelm);
+                        aai->nord = 0;
                         if (streamScanfN (record, format,
-                            (char *)wf->bptr, wf->nelm) != OK)
+                            (char *)aai->bptr, aai->nelm) != OK)
                         {
                             return ERROR;
                         }
-                        ((char*)wf->bptr)[wf->nelm] = 0;
-                        for (lval = wf->nelm;
-                            lval >= 0 && ((char*)wf->bptr)[lval] == 0;
+                        ((char*)aai->bptr)[aai->nelm] = 0;
+                        for (lval = aai->nelm;
+                            lval >= 0 && ((char*)aai->bptr)[lval] == 0;
                             lval--);
-                        wf->nord = lval+1;
+                        aai->nord = lval+1;
                         return OK;
                     default:
                         errlogSevPrintf (errlogFatal,
                             "readData %s: can't convert from string to %s\n",
-                            record->name, pamapdbfType[wf->ftvl].strvalue);
+                            record->name, pamapdbfType[aai->ftvl].strvalue);
                         return ERROR;
                 }
                 break;
@@ -132,7 +132,7 @@ static long readData (dbCommon *record, format_t *format)
                 errlogSevPrintf (errlogMajor,
                     "readData %s: can't convert from %s to %s\n",
                     record->name, pamapdbfType[format->type].strvalue,
-                    pamapdbfType[wf->ftvl].strvalue);
+                    pamapdbfType[aai->ftvl].strvalue);
                 return ERROR;
             }
         }
@@ -142,48 +142,48 @@ static long readData (dbCommon *record, format_t *format)
 
 static long writeData (dbCommon *record, format_t *format)
 {
-    waveformRecord *wf = (waveformRecord *) record;
+    aaiRecord *aai = (aaiRecord *) record;
     double dval;
     long lval;
     unsigned long nowd;
 
-    for (nowd = 0; nowd < wf->nord; nowd++)
+    for (nowd = 0; nowd < aai->nord; nowd++)
     {
         switch (format->type)
         {
             case DBF_DOUBLE:
             {
-                switch (wf->ftvl)
+                switch (aai->ftvl)
                 {
                     case DBF_DOUBLE:
-                        dval = ((double *)wf->bptr)[nowd];
+                        dval = ((double *)aai->bptr)[nowd];
                         break;
                     case DBF_FLOAT:
-                        dval = ((float *)wf->bptr)[nowd];
+                        dval = ((float *)aai->bptr)[nowd];
                         break;
                     case DBF_LONG:
-                        dval = ((long *)wf->bptr)[nowd];
+                        dval = ((long *)aai->bptr)[nowd];
                         break;
                     case DBF_ULONG:
-                        dval = ((unsigned long *)wf->bptr)[nowd];
+                        dval = ((unsigned long *)aai->bptr)[nowd];
                         break;
                     case DBF_SHORT:
-                        dval = ((short *)wf->bptr)[nowd];
+                        dval = ((short *)aai->bptr)[nowd];
                         break;
                     case DBF_USHORT:
                     case DBF_ENUM:
-                        dval = ((unsigned short *)wf->bptr)[nowd];
+                        dval = ((unsigned short *)aai->bptr)[nowd];
                         break;
                     case DBF_CHAR:
-                        dval = ((char *)wf->bptr)[nowd];
+                        dval = ((char *)aai->bptr)[nowd];
                         break;
                     case DBF_UCHAR:
-                        dval = ((unsigned char *)wf->bptr)[nowd];
+                        dval = ((unsigned char *)aai->bptr)[nowd];
                         break;
                     default:
                         errlogSevPrintf (errlogFatal,
                             "writeData %s: can't convert from %s to double\n",
-                            record->name, pamapdbfType[wf->ftvl].strvalue);
+                            record->name, pamapdbfType[aai->ftvl].strvalue);
                         return ERROR;
                 }
                 if (streamPrintf (record, format, dval))
@@ -193,29 +193,29 @@ static long writeData (dbCommon *record, format_t *format)
             case DBF_LONG:
             case DBF_ENUM:
             {
-                switch (wf->ftvl)
+                switch (aai->ftvl)
                 {
                     case DBF_LONG:
                     case DBF_ULONG:
-                        lval = ((long *)wf->bptr)[nowd];
+                        lval = ((long *)aai->bptr)[nowd];
                         break;
                     case DBF_SHORT:
-                        lval = ((short *)wf->bptr)[nowd];
+                        lval = ((short *)aai->bptr)[nowd];
                         break;
                     case DBF_USHORT:
                     case DBF_ENUM:
-                        lval = ((unsigned short *)wf->bptr)[nowd];
+                        lval = ((unsigned short *)aai->bptr)[nowd];
                         break;
                     case DBF_CHAR:
-                        lval = ((char *)wf->bptr)[nowd];
+                        lval = ((char *)aai->bptr)[nowd];
                         break;
                     case DBF_UCHAR:
-                        lval = ((unsigned char *)wf->bptr)[nowd];
+                        lval = ((unsigned char *)aai->bptr)[nowd];
                         break;
                     default:
                         errlogSevPrintf (errlogFatal,
                             "writeData %s: can't convert from %s to long\n",
-                            record->name, pamapdbfType[wf->ftvl].strvalue);
+                            record->name, pamapdbfType[aai->ftvl].strvalue);
                         return ERROR;
                 }
                 if (streamPrintf (record, format, lval))
@@ -224,32 +224,32 @@ static long writeData (dbCommon *record, format_t *format)
             }
             case DBF_STRING:
             {
-                switch (wf->ftvl)
+                switch (aai->ftvl)
                 {
                     case DBF_STRING:
                         if (streamPrintf (record, format,
-                            ((char *)wf->bptr) + nowd * MAX_STRING_SIZE))
+                            ((char *)aai->bptr) + nowd * MAX_STRING_SIZE))
                             return ERROR;
                         break;
                     case DBF_CHAR:
                     case DBF_UCHAR:
-                        /* print waveform as a null-terminated string */
-                        if (wf->nord < wf->nelm)
+                        /* print aai as a null-terminated string */
+                        if (aai->nord < aai->nelm)
                         {
-                            ((char *)wf->bptr)[wf->nord] = 0;
+                            ((char *)aai->bptr)[aai->nord] = 0;
                         }
                         else
                         {
-                            ((char *)wf->bptr)[wf->nelm-1] = 0;
+                            ((char *)aai->bptr)[aai->nelm-1] = 0;
                         }
                         if (streamPrintf (record, format,
-                            ((char *)wf->bptr)))
+                            ((char *)aai->bptr)))
                             return ERROR;
                         return OK;
                     default:
                         errlogSevPrintf (errlogFatal,
                             "writeData %s: can't convert from %s to string\n",
-                            record->name, pamapdbfType[wf->ftvl].strvalue);
+                            record->name, pamapdbfType[aai->ftvl].strvalue);
                         return ERROR;
                 }
                 break;
@@ -258,7 +258,7 @@ static long writeData (dbCommon *record, format_t *format)
             {
                 errlogSevPrintf (errlogFatal,
                     "writeData %s: can't convert from %s to %s\n",
-                    record->name, pamapdbfType[wf->ftvl].strvalue,
+                    record->name, pamapdbfType[aai->ftvl].strvalue,
                     pamapdbfType[format->type].strvalue);
                 return ERROR;
             }
@@ -269,9 +269,18 @@ static long writeData (dbCommon *record, format_t *format)
 
 static long initRecord (dbCommon *record)
 {
-    waveformRecord *wf = (waveformRecord *) record;
+    static const int typesize[] = {MAX_STRING_SIZE,1,1,2,2,4,4,4,8,2};
+    aaiRecord *aai = (aaiRecord *) record;
 
-    return streamInitRecord (record, &wf->inp, readData, writeData);
+    aai->bptr = calloc(aai->nelm, typesize[aai->ftvl]);
+    if (aai->bptr == NULL)
+    {
+        errlogSevPrintf (errlogFatal,
+            "initRecord %s: can't allocate memory for data array\n",
+            record->name);
+        return ERROR;
+    }
+    return streamInitRecord (record, &aai->inp, readData, writeData);
 }
 
 struct {
@@ -281,7 +290,7 @@ struct {
     DEVSUPFUN init_record;
     DEVSUPFUN get_ioint_info;
     DEVSUPFUN read;
-} devwaveformStream = {
+} devaaiStream = {
     5,
     streamReport,
     streamInit,
@@ -290,4 +299,4 @@ struct {
     streamRead
 };
 
-epicsExportAddress(dset,devwaveformStream);
+epicsExportAddress(dset,devaaiStream);

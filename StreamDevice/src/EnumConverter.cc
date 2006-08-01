@@ -24,14 +24,14 @@
 
 // Enum %{string0|string1|...}
 
-class StreamEnumConverter : public StreamFormatConverter
+class EnumConverter : public StreamFormatConverter
 {
     int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int printLong(const StreamFormat&, StreamBuffer&, long);
+    bool printLong(const StreamFormat&, StreamBuffer&, long);
     int scanLong(const StreamFormat&, const char*, long&);
 };
 
-int StreamEnumConverter::
+int EnumConverter::
 parse(const StreamFormat& fmt, StreamBuffer& info,
     const char*& source, bool)
 {
@@ -60,7 +60,7 @@ parse(const StreamFormat& fmt, StreamBuffer& info,
                 source++;
                 info.append('\0');
                 info[i] = maxValue;
-                debug("StreamEnumConverter::parse %d choices: %s\n",
+                debug("EnumConverter::parse %d choices: %s\n",
                     maxValue+1, info.expand(i+1)());
                 return enum_format;
             case esc:
@@ -74,12 +74,16 @@ parse(const StreamFormat& fmt, StreamBuffer& info,
     return false;
 }
 
-int StreamEnumConverter::
+bool EnumConverter::
 printLong(const StreamFormat& fmt, StreamBuffer& output, long value)
 {
     long maxValue = fmt.info[0]; // number of enums
     const char* s = fmt.info+1;  // first enum string
-    if (value < 0 || value > maxValue) return false;
+    if (value < 0 || value > maxValue)
+    {
+        error("Value %li out of range [0...%li]\n", value, maxValue);        
+        return false;
+    }
     while (value--)
     {
         while(*s)
@@ -97,10 +101,10 @@ printLong(const StreamFormat& fmt, StreamBuffer& output, long value)
     return true;
 }
 
-int StreamEnumConverter::
+int EnumConverter::
 scanLong(const StreamFormat& fmt, const char* input, long& value)
 {
-    debug("StreamEnumConverter::scanLong(%%%c, \"%s\")\n",
+    debug("EnumConverter::scanLong(%%%c, \"%s\")\n",
         fmt.conv, input);
     long maxValue = fmt.info[0]; // number of enums
     const char* s = fmt.info+1; // first enum string
@@ -109,7 +113,7 @@ scanLong(const StreamFormat& fmt, const char* input, long& value)
     bool match;
     for (val = 0; val <= maxValue; val++)
     {
-        debug("StreamEnumConverter::scanLong: check #%ld \"%s\"\n", val, s);
+        debug("EnumConverter::scanLong: check #%ld \"%s\"\n", val, s);
         length = 0;
         match = true;
         while(*s)
@@ -125,14 +129,14 @@ scanLong(const StreamFormat& fmt, const char* input, long& value)
         }
         if (match)
         {
-            debug("StreamEnumConverter::scanLong: value %ld matches\n", val);
+            debug("EnumConverter::scanLong: value %ld matches\n", val);
             value = val;
             return length;
         }
         s++;
     }
-    debug("StreamEnumConverter::scanLong: no value matches\n");
+    debug("EnumConverter::scanLong: no value matches\n");
     return -1;
 }
 
-RegisterConverter (StreamEnumConverter, "{");
+RegisterConverter (EnumConverter, "{");

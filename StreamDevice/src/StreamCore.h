@@ -89,7 +89,7 @@ enum Flags {
                     AcceptInput|AcceptEvent|BusPending
 };
 
-class StreamFormat;
+struct StreamFormat;
 
 class StreamCore :
     StreamProtocolParser::Client,
@@ -147,8 +147,6 @@ protected:
     unsigned long readTimeout;
     unsigned long pollPeriod;
     unsigned long maxInput;
-    unsigned long low;
-    unsigned long high;
     StreamBuffer inTerminator;
     StreamBuffer outTerminator;
     StreamBuffer separator;
@@ -178,6 +176,8 @@ protected:
     bool evalEvent();
     bool evalWait();
     bool evalExec();
+    bool evalConnect();
+    bool evalDisconnect();
     bool formatOutput();
     bool matchInput();
     bool matchSeparator();
@@ -196,11 +196,12 @@ protected:
         const void* input, long size);
     void eventCallback(StreamBusInterface::IoStatus status);
     void execCallback(StreamBusInterface::IoStatus status);
+    void connectCallback(StreamBusInterface::IoStatus status);
 
 // virtual methods
     virtual void protocolStartHook() {}
     virtual void protocolFinishHook(ProtocolResult) {}
-    virtual void startTimer(unsigned short timeout) = 0;
+    virtual void startTimer(unsigned long timeout) = 0;
     virtual bool formatValue(const StreamFormat&, const void* fieldaddress) = 0;
     virtual bool matchValue (const StreamFormat&, const void* fieldaddress) = 0;
     virtual void lockMutex() = 0;

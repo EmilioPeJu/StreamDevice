@@ -27,8 +27,9 @@ StreamFormatConverter* StreamFormatConverter::
 registered [256];
 
 void StreamFormatConverter::
-provides(const char* provided)
+provides(const char* name, const char* provided)
 {
+    _name = name;
     const unsigned char* p;
     for (p = reinterpret_cast<const unsigned char*>(provided);
         *p; p++)
@@ -37,7 +38,7 @@ provides(const char* provided)
     }
 }
 
-int StreamFormatConverter::
+bool StreamFormatConverter::
 printLong(const StreamFormat& fmt, StreamBuffer&, long)
 {
     error("Unimplemented printLong method\n for %%%c format",
@@ -45,7 +46,7 @@ printLong(const StreamFormat& fmt, StreamBuffer&, long)
     return false;
 }
 
-int StreamFormatConverter::
+bool StreamFormatConverter::
 printDouble(const StreamFormat& fmt, StreamBuffer&, double)
 {
     error("Unimplemented printDouble method for %%%c format\n",
@@ -53,7 +54,7 @@ printDouble(const StreamFormat& fmt, StreamBuffer&, double)
     return false;
 }
 
-int StreamFormatConverter::
+bool StreamFormatConverter::
 printString(const StreamFormat& fmt, StreamBuffer&, const char*)
 {
     error("Unimplemented printString method for %%%c format\n",
@@ -61,7 +62,7 @@ printString(const StreamFormat& fmt, StreamBuffer&, const char*)
     return false;
 }
 
-int StreamFormatConverter::
+bool StreamFormatConverter::
 printPseudo(const StreamFormat& fmt, StreamBuffer&)
 {
     error("Unimplemented printPseudo method for %%%c format\n",
@@ -111,18 +112,29 @@ static void copyFormatString(StreamBuffer& info, const char* source)
 
 // Standard Long Converter for 'diouxX'
 
-class StreamStdLongConverter : public StreamFormatConverter
+class StdLongConverter : public StreamFormatConverter
 {
     int parse(const StreamFormat& fmt, StreamBuffer& output, const char*& value, bool scanFormat);
-    int printLong(const StreamFormat& fmt, StreamBuffer& output, long value);
+    bool printLong(const StreamFormat& fmt, StreamBuffer& output, long value);
     int scanLong(const StreamFormat& fmt, const char* input, long& value);
 };
 
-int StreamStdLongConverter::
+int StdLongConverter::
 parse(const StreamFormat& fmt, StreamBuffer& info,
     const char*& source, bool scanFormat)
 {
-    if (scanFormat && (fmt.flags & alt_flag)) return false;
+    if (scanFormat && (fmt.flags & alt_flag))
+    {
+        error("Use of modifier '#' not allowed with %%%c input conversion\n",
+            fmt.conv);
+        return false;
+    }
+    if (scanFormat && fmt.prec >= 0)
+    {
+        error("Use of precision field '.%d' not allowed with %%%c input conversion\n",
+            fmt.prec, fmt.conv);
+        return false;
+    }
     copyFormatString(info, source);
     info.append('l');
     info.append(fmt.conv);
@@ -130,14 +142,14 @@ parse(const StreamFormat& fmt, StreamBuffer& info,
     return long_format;
 }
 
-int StreamStdLongConverter::
+bool StdLongConverter::
 printLong(const StreamFormat& fmt, StreamBuffer& output, long value)
 {
     output.printf(fmt.info, value);
     return true;
 }
 
-int StreamStdLongConverter::
+int StdLongConverter::
 scanLong(const StreamFormat& fmt, const char* input, long& value)
 {
     int length = -1;
@@ -152,18 +164,18 @@ scanLong(const StreamFormat& fmt, const char* input, long& value)
     return length;
 }
 
-RegisterConverter (StreamStdLongConverter, "diouxX");
+RegisterConverter (StdLongConverter, "diouxX");
 
 // Standard Double Converter for 'feEgG'
 
-class StreamStdDoubleConverter : public StreamFormatConverter
+class StdDoubleConverter : public StreamFormatConverter
 {
     virtual int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    virtual int printDouble(const StreamFormat&, StreamBuffer&, double);
+    virtual bool printDouble(const StreamFormat&, StreamBuffer&, double);
     virtual int scanDouble(const StreamFormat&, const char*, double&);
 };
 
-int StreamStdDoubleConverter::
+int StdDoubleConverter::
 parse(const StreamFormat& fmt, StreamBuffer& info,
     const char*& source, bool scanFormat)
 {
@@ -173,6 +185,12 @@ parse(const StreamFormat& fmt, StreamBuffer& info,
             fmt.conv);
         return false;
     }
+    if (scanFormat && fmt.prec >= 0)
+    {
+        error("Use of precision field '.%d' not allowed with %%%c input conversion\n",
+            fmt.prec, fmt.conv);
+        return false;
+    }
     copyFormatString(info, source);
     if (scanFormat) info.append('l');
     info.append(fmt.conv);
@@ -180,14 +198,14 @@ parse(const StreamFormat& fmt, StreamBuffer& info,
     return double_format;
 }
 
-int StreamStdDoubleConverter::
+bool StdDoubleConverter::
 printDouble(const StreamFormat& fmt, StreamBuffer& output, double value)
 {
     output.printf(fmt.info, value);
     return true;
 }
 
-int StreamStdDoubleConverter::
+int StdDoubleConverter::
 scanDouble(const StreamFormat& fmt, const char* input, double& value)
 {
     int length = -1;
@@ -202,18 +220,18 @@ scanDouble(const StreamFormat& fmt, const char* input, double& value)
     return length;
 }
 
-RegisterConverter (StreamStdDoubleConverter, "feEgG");
+RegisterConverter (StdDoubleConverter, "feEgG");
 
 // Standard String Converter for 's'
 
-class StreamStdStringConverter : public StreamFormatConverter
+class StdStringConverter : public StreamFormatConverter
 {
     virtual int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    virtual int printString(const StreamFormat&, StreamBuffer&, const char*);
+    virtual bool printString(const StreamFormat&, StreamBuffer&, const char*);
     virtual int scanString(const StreamFormat&, const char*, char*, size_t);
 };
 
-int StreamStdStringConverter::
+int StdStringConverter::
 parse(const StreamFormat& fmt, StreamBuffer& info,
     const char*& source, bool scanFormat)
 {
@@ -224,20 +242,26 @@ parse(const StreamFormat& fmt, StreamBuffer& info,
             fmt.conv);
         return false;
     }
+    if (scanFormat && fmt.prec >= 0)
+    {
+        error("Use of precision field '.%d' not allowed with %%%c input conversion\n",
+            fmt.prec, fmt.conv);
+        return false;
+    }
     copyFormatString(info, source);
     info.append(fmt.conv);
     if (scanFormat) info.append("%n");
     return string_format;
 }
 
-int StreamStdStringConverter::
+bool StdStringConverter::
 printString(const StreamFormat& fmt, StreamBuffer& output, const char* value)
 {
     output.printf(fmt.info, value);
     return true;
 }
 
-int StreamStdStringConverter::
+int StdStringConverter::
 scanString(const StreamFormat& fmt, const char* input,
     char* value, size_t maxlen)
 {
@@ -270,25 +294,25 @@ scanString(const StreamFormat& fmt, const char* input,
         if (length < 0) return -1;
         value[length] = '\0';
 #ifndef NO_TEMPORARY
-        debug("StreamStdStringConverter::scanString: length=%d, value=%s\n",
+        debug("StdStringConverter::scanString: length=%d, value=%s\n",
             length, StreamBuffer(value,length).expand()());
 #endif
     }
     return length;
 }
 
-RegisterConverter (StreamStdStringConverter, "s");
+RegisterConverter (StdStringConverter, "s");
 
 // Standard Characters Converter for 'c'
 
-class StreamStdCharsConverter : public StreamStdStringConverter
+class StdCharsConverter : public StdStringConverter
 {
     virtual int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    virtual int printLong(const StreamFormat&, StreamBuffer&, long);
+    virtual bool printLong(const StreamFormat&, StreamBuffer&, long);
     // scanString is inherited from %s format
 };
 
-int StreamStdCharsConverter::
+int StdCharsConverter::
 parse(const StreamFormat& fmt, StreamBuffer& info,
     const char*& source, bool scanFormat)
 {
@@ -297,6 +321,12 @@ parse(const StreamFormat& fmt, StreamBuffer& info,
         error("Use of modifiers '+', ' ', '0', '#' "
             "not allowed with %%%c conversion\n",
             fmt.conv);
+        return false;
+    }
+    if (scanFormat && fmt.prec >= 0)
+    {
+        error("Use of precision field '.%d' not allowed with %%%c input conversion\n",
+            fmt.prec, fmt.conv);
         return false;
     }
     copyFormatString(info, source);
@@ -309,25 +339,25 @@ parse(const StreamFormat& fmt, StreamBuffer& info,
     return long_format;
 }
 
-int StreamStdCharsConverter::
+bool StdCharsConverter::
 printLong(const StreamFormat& fmt, StreamBuffer& output, long value)
 {
     output.printf(fmt.info, value);
     return true;
 }
 
-RegisterConverter (StreamStdCharsConverter, "c");
+RegisterConverter (StdCharsConverter, "c");
 
 // Standard Charset Converter for '['
 
-class StreamStdCharsetConverter : public StreamFormatConverter
+class StdCharsetConverter : public StreamFormatConverter
 {
     virtual int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
     virtual int scanString(const StreamFormat&, const char*, char*, size_t);
     // no print method, %[ is readonly
 };
 
-int StreamStdCharsetConverter::
+int StdCharsetConverter::
 parse(const StreamFormat& fmt, StreamBuffer& info,
     const char*& source, bool scanFormat)
 {
@@ -341,6 +371,12 @@ parse(const StreamFormat& fmt, StreamBuffer& info,
         error("Use of modifiers '-', '+', ' ', '0', '#'"
             "not allowed with %%%c conversion\n",
             fmt.conv);
+        return false;
+    }
+    if (scanFormat && fmt.prec >= 0)
+    {
+        error("Use of precision field '.%d' not allowed with %%%c input conversion\n",
+            fmt.prec, fmt.conv);
         return false;
     }
     info.printf("%%%d[", fmt.width);
@@ -358,7 +394,7 @@ parse(const StreamFormat& fmt, StreamBuffer& info,
     return string_format;
 }
 
-int StreamStdCharsetConverter::
+int StdCharsetConverter::
 scanString(const StreamFormat& fmt, const char* input,
     char* value, size_t maxlen)
 {
@@ -385,10 +421,10 @@ scanString(const StreamFormat& fmt, const char* input,
         if (sscanf(input, f, value, &length) < 1) return -1;
         if (length < 0) return -1;
         value[length] = '\0';
-        debug("StreamStdCharsetConverter::scanString: length=%d, value=%s\n",
+        debug("StdCharsetConverter::scanString: length=%d, value=%s\n",
             length, value);
     }
     return length;
 }
 
-RegisterConverter (StreamStdCharsetConverter, "[");
+RegisterConverter (StdCharsetConverter, "[");

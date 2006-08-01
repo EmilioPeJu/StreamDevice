@@ -1,19 +1,11 @@
 # Want debugging?
-HOST_OPT = NO
-
-# Do you have asynDriver? Which version?
-# For new versions of asyn try setting  ASYN_COMPAT_*
-# and check compatibility.
-ASYN_VERS = 4-5
-
-#Is a version of asynDriver compatible to some older version?
-ASYN_COMPAT_4-4 = 4-3
-ASYN_COMPAT_4-5 = 4-3
+# HOST_OPT = NO
 
 # You may add more record interfaces
 # This requires the naming conventions
 # dev$(RECORD)Stream.c
 
+RECORDS += aai aao
 RECORDS += ao ai
 RECORDS += bo bi
 RECORDS += mbbo mbbi
@@ -29,18 +21,18 @@ RECORDS += calcout
 # Due to strange cross dependencies in synApps
 # you have to build the 'sscan' and 'genSub'
 # modules before building 'calc'.
-
+# See doc/scalcout.html for a required fix in scalcout.
 SYNAPPS_RECORDS += scalcout
 
 # You may add more bus interfaces
-# This requires the naming conventions
+# This requires the naming convention
 # $(BUS)Interface.cc
 # asynDriver interface is added automatically
-# if ASYN_VERS is defined.
-
+# if ASYN is defined in your RELEASE file.
 # BUSSES += Debug
 
 # You may add more format converters
+# This requires the naming convention
 # $(FORMAT)Converter.cc
 
 FORMATS += Enum
@@ -54,8 +46,11 @@ FORMATS += Checksum
 # registerRecordDeviceDriver.pl script in base:
 # at the end replace the line "IoccrfReg iocshReg;"
 # by "static IoccrfReg iocshReg;"
+# LOADABLE_MODULE = YES
 
-# LOADABLE_MODULE=YES
+# Want to add some memory tracing
+# to find memory leaks?
+# USE_MEMGUARD = YES
 
 # Sources of Stream Kernel
 # Do not modify

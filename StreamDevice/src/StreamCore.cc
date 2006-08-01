@@ -23,8 +23,10 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-enum Commands { end_cmd, in_cmd, out_cmd, wait_cmd, event_cmd, exec_cmd };
-const char* commandStr[] = { "end", "in", "out", "wait", "event", "exec" };
+enum Commands { end_cmd, in_cmd, out_cmd, wait_cmd, event_cmd, exec_cmd,
+    connect_cmd, disconnect_cmd };
+const char* commandStr[] = { "end", "in", "out", "wait", "event", "exec",
+    "connect", "disconnect" };
 
 inline const char* commandName(unsigned char i)
 {
@@ -68,6 +70,13 @@ static char* printCommands(StreamBuffer& buffer, const char* c)
                 cmdlen = extract<unsigned short>(c);
                 c = StreamProtocolParser::printString(buffer, c);
                 buffer.append("\";\n");
+                break;
+            case connect_cmd:
+                timeout = extract<unsigned long>(c);
+                buffer.append("    connect %ld;\n", timeout);
+                break;
+            case disconnect_cmd:
+                buffer.append("    disconnect;\n");
                 break;
             default:
                 buffer.append("\033[31;1mGARBAGE: ");
@@ -136,7 +145,7 @@ StreamCore()
 StreamCore::
 ~StreamCore()
 {
-    debug("~StreamCore(%s) %p\n", name(), this);
+    debug("~StreamCore(%s) %p\n", name(), (void*)this);
     releaseBus();
     // remove myself from list of all streams
     StreamCore** pstream;
@@ -162,7 +171,7 @@ attachBus(const char* busname, int addr, const char* param)
         return false;
     }
     debug("StreamCore::attachBus(busname=\"%s\", addr=%i, param=\"%s\") businterface=%p\n",
-        busname, addr, param, businterface);
+        busname, addr, param, (void*)businterface);
     return true;
 }
 
@@ -356,6 +365,22 @@ compileCommand(StreamProtocolParser::Protocol* protocol,
         buffer.append(StreamProtocolParser::eos);
         return true;
     }
+    if (strcmp(command, commandStr[connect_cmd]) == 0)
+    {
+        buffer.append(connect_cmd);
+        if (!protocol->compileNumber(timeout, args))
+        {
+            return false;
+        }
+        buffer.append(&timeout, sizeof(timeout));
+        return true;
+    }
+    if (strcmp(command, commandStr[disconnect_cmd]) == 0)
+    {
+        buffer.append(disconnect_cmd);
+        return true;
+    }
+    
     protocol->errorMsg(getLineNumber(command),
         "Unknown command name '%s'\n", command);
     return false;
@@ -440,6 +465,7 @@ finishProtocol(ProtocolResult status)
                 break;
             case Abort:
                 // cancel anything running
+                busCancelAll();
             case Fault:
                 // get rid of all the rubbish whe might have collected
                 inputBuffer.clear();
@@ -510,6 +536,10 @@ evalCommand()
         case end_cmd:
             finishProtocol(Success);
             return true;
+        case connect_cmd:
+            return evalConnect();
+        case disconnect_cmd:
+            return evalDisconnect();
         default:
             error("INTERNAL ERROR (%s): illegal command code 0x%02x\n",
                 name(), *activeCommand);
@@ -609,10 +639,10 @@ formatOutput()
                 if (!formatValue(fmt, fieldAddress ? fieldAddress() : NULL))
                 {
                     if (fieldName)
-                        error("%s: Can't format field '%s' with '%%%s'\n",
+                        error("%s: Cannot format field '%s' with '%%%s'\n",
                             name(), fieldName, formatstring);
                     else
-                        error("%s: Can't format value with '%%%s'\n",
+                        error("%s: Cannot format value with '%%%s'\n",
                             name(), formatstring);
                     return false;
                 }
@@ -660,8 +690,14 @@ printValue(const StreamFormat& fmt, long value)
         return false;
     }
     printSeparator();
-    return StreamFormatConverter::find(fmt.conv)->
-        printLong(fmt, outputLine, value);
+    if (!StreamFormatConverter::find(fmt.conv)->
+        printLong(fmt, outputLine, value))
+    {
+        error("%s: Formatting value %li failed\n",
+            name(), value);
+        return false;
+    }
+    return true;
 }
 
 bool StreamCore::
@@ -674,8 +710,14 @@ printValue(const StreamFormat& fmt, double value)
         return false;
     }
     printSeparator();
-    return StreamFormatConverter::find(fmt.conv)->
-        printDouble(fmt, outputLine, value);
+    if (!StreamFormatConverter::find(fmt.conv)->
+        printDouble(fmt, outputLine, value))
+    {
+        error("%s: Formatting value %#g failed\n",
+            name(), value);
+        return false;
+    }
+    return true;
 }
 
 bool StreamCore::
@@ -688,8 +730,15 @@ printValue(const StreamFormat& fmt, char* value)
         return false;
     }
     printSeparator();
-    return StreamFormatConverter::find(fmt.conv)->
-        printString(fmt, outputLine, value);
+    if (!StreamFormatConverter::find(fmt.conv)->
+        printString(fmt, outputLine, value))
+    {
+        StreamBuffer buffer(value);
+        error("%s: Formatting value \"%s\" failed\n",
+            name(), buffer.expand()());
+        return false;
+    }
+    return true;
 }
 
 void StreamCore::
@@ -903,10 +952,20 @@ readCallback(StreamBusInterface::IoStatus status,
         end = inputBuffer.length();
         if (!(flags & AsyncMode))
         {
-            error("%s: Timeout after reading %ld bytes \"%s%s\"\n",
-                name(), end, end > 20 ? "..." : "",
+            error("%s: Timeout after reading %ld byte%s \"%s%s\"\n",
+                name(), end, end==1 ? "" : "s", end > 20 ? "..." : "",
                 inputBuffer.expand(-20)());
         }
+    }
+    
+    if (status == StreamBusInterface::ioTimeout && (flags & AsyncMode))
+    {
+        debug("StreamCore::readCallback(%s) async timeout: just restart\n",
+            name());
+        inputBuffer.clear();
+        commandIndex = commandStart;
+        evalIn();
+        return 0;
     }
 
     inputLine.set(inputBuffer(), end);
@@ -1054,12 +1113,17 @@ matchInput()
                 // literal byte
                 if (consumedInput >= inputLine.length())
                 {
+                    int i = 0;
+                    while (commandIndex[i] >= ' ') i++;
                     if (!(flags & AsyncMode))
-                        error("%s: Input \"%s%s\" too short. No match for byte \"%s\"\n",
+                    {
+                        error("%s: Input \"%s%s\" too short."
+                              " No match for \"%s\"\n",
                             name(), 
                             inputLine.length() > 20 ? "..." : "",
                             inputLine.expand(-20)(),
-                            StreamBuffer(&command,1).expand()());
+                            StreamBuffer(commandIndex-1,i+1).expand()());
+                    }
                     return false;
                 }
                 if (command != inputLine[consumedInput])
@@ -1068,10 +1132,18 @@ matchInput()
                     {
                         int i = 0;
                         while (commandIndex[i] >= ' ') i++;
-                        error("%s: Byte %ld in \"%s\" does not match expected \"%s\"\n",
-                        name(), consumedInput,
-                        inputLine.expand()(),
-                        StreamBuffer(commandIndex-1,i+1).expand()());
+                        error("%s: Input \"%s%s\" mismatch after %ld byte%s\n",
+                            name(),
+                            consumedInput > 10 ? "..." : "",
+                            inputLine.expand(consumedInput > 10 ?
+                                consumedInput-10 : 0,20)(),
+                            consumedInput,
+                            consumedInput==1 ? "" : "s");
+
+                        error("%s: got \"%s\" where \"%s\" was expected\n",
+                            name(),
+                            inputLine.expand(consumedInput, 20)(),
+                            StreamBuffer(commandIndex-1,i+1).expand()());
                     }
                     return false;
                 }
@@ -1082,10 +1154,23 @@ matchInput()
     if (surplus > 0 && !(flags & IgnoreExtraInput))
     {
         if (!(flags & AsyncMode))
-            error("%s: %ld bytes surplus input \"%s%s\"\n",
-                name(), surplus,
-                inputLine.expand(consumedInput, 19)(),
+        {
+            error("%s: %ld byte%s surplus input \"%s%s\"\n",
+                name(), surplus, surplus==1 ? "" : "s",
+                inputLine.expand(consumedInput, 20)(),
                 surplus > 20 ? "..." : "");
+                
+            if (consumedInput>20)
+                error("%s: after %ld byte%s \"...%s\"\n",
+                    name(), consumedInput,
+                    consumedInput==1 ? "" : "s",
+                    inputLine.expand(consumedInput-20, 20)());
+            else
+                error("%s: after %ld byte%s: \"%s\"\n",
+                    name(), consumedInput,
+                    consumedInput==1 ? "" : "s",
+                    inputLine.expand(0, consumedInput)());
+        }
         return false;
     }
     return true;
@@ -1287,6 +1372,14 @@ evalExec()
 {
     outputLine.clear();
     formatOutput();
+    // release bus
+    if (flags & BusOwner)
+    {
+        debug("StreamCore::evalExec(%s): unlocking bus\n",
+            name());
+        busUnlock();
+        flags &= ~BusOwner;
+    }
     if (!execute())
     {
         error("%s: executing command \"%s\"\n", name(), outputLine());
@@ -1317,3 +1410,46 @@ bool StreamCore::execute()
         name());
     return false;
 }
+
+bool StreamCore::evalConnect()
+{
+    unsigned long connectTimeout = extract<unsigned long>(commandIndex);
+    if (!busConnectRequest(connectTimeout))
+    {
+        error("%s: Connect not supported for this bus\n",
+            name());
+        return false;
+    }
+    return true;
+}
+
+void StreamCore::
+connectCallback(StreamBusInterface::IoStatus status)
+{
+    switch (status)
+    {
+        case StreamBusInterface::ioSuccess:
+            evalCommand();
+            return;
+        default:
+            error("%s: Connect failed\n",
+                name());
+            finishProtocol(Fault);
+            return;
+    }
+}
+
+bool StreamCore::evalDisconnect()
+{
+    if (!busDisconnect())
+    {
+        error("%s: Cannot disconnect from this bus\n",
+            name());
+        finishProtocol(Fault);
+        return false;
+    }
+    evalCommand();
+    return true;
+}
+
+#include "streamReferences"

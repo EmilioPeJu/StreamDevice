@@ -20,8 +20,8 @@
 
 #include "StreamFormatConverter.h"
 #include "StreamError.h"
-#if defined (__vxworks) || defined (vxWorks)
-// vxWorks has no vsnprintf
+#if defined(__vxworks) || defined(vxWorks) || defined(_WIN32)
+// vxWorks and Windows have no strncasecmp
 #include <epicsString.h>
 #define strncasecmp epicsStrnCaseCmp
 #endif
@@ -459,14 +459,16 @@ static checksum checksumMap[] =
     {"adler32", adler32,          0x00000001, 0x00000000, 4}  // 0x091E01DE
 };
 
-class StreamChecksumConverter : public StreamFormatConverter
+static ulong mask[5] = {0, 0xFF, 0xFFFF, 0xFFFFFF, 0xFFFFFFFF};
+
+class ChecksumConverter : public StreamFormatConverter
 {
     int parse (const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int printPseudo(const StreamFormat&, StreamBuffer&);
+    bool printPseudo(const StreamFormat&, StreamBuffer&);
     int scanPseudo(const StreamFormat&, StreamBuffer&, long& cursor);
 };
 
-int StreamChecksumConverter::
+int ChecksumConverter::
 parse(const StreamFormat&, StreamBuffer& info, const char*& source, bool)
 {
     const char* p = strchr(source, '>');
@@ -492,23 +494,24 @@ parse(const StreamFormat&, StreamBuffer& info, const char*& source, bool)
     return false;
 }
 
-int StreamChecksumConverter::
+bool ChecksumConverter::
 printPseudo(const StreamFormat& format, StreamBuffer& output)
 {
     ulong sum;
     int fnum = format.info[0];
+    int start = format.width;
+    int length = output.length()-format.width;
+    if (format.prec > 0) length -= format.prec;
 
-    debug("StreamChecksumConverter %s: output to check: \"%s\"\n",
-        checksumMap[fnum].name, output.expand(format.width)());
+    debug("ChecksumConverter %s: output to check: \"%s\"\n",
+        checksumMap[fnum].name, output.expand(start,length)());
 
     sum = checksumMap[fnum].xorout ^ checksumMap[fnum].func(
-        reinterpret_cast<uchar*>(output(format.width)),
-        output.length()-format.width,
-        checksumMap[fnum].init);
+        reinterpret_cast<uchar*>(output(start)), length,
+        checksumMap[fnum].init) & mask[checksumMap[fnum].bytes];
 
-    debug("StreamChecksumConverter %s: output checksum is 0x%lX\n",
-        checksumMap[fnum].name,
-        sum & (0xffffffff >> (8*(4-checksumMap[fnum].bytes))));
+    debug("ChecksumConverter %s: output checksum is 0x%lX\n",
+        checksumMap[fnum].name, sum);
 
     int i;
     unsigned outchar;
@@ -518,7 +521,7 @@ printPseudo(const StreamFormat& format, StreamBuffer& output)
         for (i = 0; i < checksumMap[fnum].bytes; i++)
         {
             outchar = sum & 0xff;
-            debug("StreamChecksumConverter %s: little endian appending 0x%X\n",
+            debug("ChecksumConverter %s: little endian appending 0x%X\n",
                 checksumMap[fnum].name, outchar);
             if (format.flags & zero_flag) // ASCII
                 output.printf("%02X", outchar);
@@ -533,7 +536,7 @@ printPseudo(const StreamFormat& format, StreamBuffer& output)
         for (i = 0; i < checksumMap[fnum].bytes; i++)
         {
             outchar = (sum >> 24) & 0xff;
-            debug("StreamChecksumConverter %s: big endian appending 0x%X\n",
+            debug("ChecksumConverter %s: big endian appending 0x%X\n",
                 checksumMap[fnum].name, outchar);
             if (format.flags & zero_flag) // ASCII
                 output.printf("%02X", outchar);
@@ -545,14 +548,17 @@ printPseudo(const StreamFormat& format, StreamBuffer& output)
     return true;
 }
 
-int StreamChecksumConverter::
+int ChecksumConverter::
 scanPseudo(const StreamFormat& format, StreamBuffer& input, long& cursor)
 {
     int fnum = format.info[0];
     ulong sum;
-
-    debug("StreamChecksumConverter %s: input to check: \"%s\n",
-        checksumMap[fnum].name, input.expand(format.width,cursor)());
+    int start = format.width;
+    int length = cursor-format.width;
+    if (format.prec > 0) length -= format.prec;
+    
+    debug("ChecksumConverter %s: input to check: \"%s\n",
+        checksumMap[fnum].name, input.expand(start,length)());
 
     if (input.length() - cursor <
         (format.flags & zero_flag ? 2 : 1) * checksumMap[fnum].bytes)
@@ -562,12 +568,11 @@ scanPseudo(const StreamFormat& format, StreamBuffer& input, long& cursor)
     }
 
     sum = checksumMap[fnum].xorout ^ checksumMap[fnum].func(
-        reinterpret_cast<uchar*>(input(format.width)),
-        cursor-format.width, checksumMap[fnum].init);
+        reinterpret_cast<uchar*>(input(start)), length,
+        checksumMap[fnum].init) & mask[checksumMap[fnum].bytes];
 
-    debug("StreamChecksumConverter %s: input checksum is 0x%0*lX\n",
-        checksumMap[fnum].name, 2*checksumMap[fnum].bytes,
-        sum & (0xffffffff >> (8*(4-checksumMap[fnum].bytes))));
+    debug("ChecksumConverter %s: input checksum is 0x%0*lX\n",
+        checksumMap[fnum].name, 2*checksumMap[fnum].bytes, sum);
 
     int i,j;
     unsigned inchar;
@@ -617,4 +622,4 @@ scanPseudo(const StreamFormat& format, StreamBuffer& input, long& cursor)
     return checksumMap[fnum].bytes;
 }
 
-RegisterConverter (StreamChecksumConverter, "<");
+RegisterConverter (ChecksumConverter, "<");

@@ -31,11 +31,12 @@ public:
     {
         friend class StreamBusInterface;
         virtual void lockCallback(IoStatus status) = 0;
-        virtual void writeCallback(IoStatus status) = 0;
+        virtual void writeCallback(IoStatus status);
         virtual long readCallback(IoStatus status,
-            const void* input, long size) = 0;
-        virtual void eventCallback(IoStatus status) = 0;
-        virtual long priority() = 0;
+            const void* input, long size);
+        virtual void eventCallback(IoStatus status);
+        virtual void connectCallback(IoStatus status);
+        virtual long priority();
         virtual const char* name() = 0;
 
     protected:
@@ -72,6 +73,15 @@ public:
             return businterface->readRequest(replytimeout_ms,
                 readtimeout_ms, expectedLength, async);
         }
+        void busCancelAll() {
+            businterface->cancelAll();
+        }
+        bool busConnectRequest(unsigned long timeout_ms) {
+            return businterface->connectRequest(timeout_ms);
+        }
+        bool busDisconnect() {
+            return businterface->disconnect();
+        }
     };
 
 private:
@@ -86,6 +96,8 @@ protected:
     const char* eos;
     size_t eoslen;
     StreamBusInterface(Client* client);
+    
+// map client functions into StreamBusInterface namespace
     void lockCallback(IoStatus status)
         { client->lockCallback(status); }
     void writeCallback(IoStatus status)
@@ -95,25 +107,30 @@ protected:
         { return client->readCallback(status, input, size); }
     void eventCallback(IoStatus status)
         { client->eventCallback(status); }
+    void connectCallback(IoStatus status)
+        { client->connectCallback(status); }
     long priority() { return client->priority(); }
     const char* clientName() { return client->name(); }
 
 // default implementations
+    virtual bool writeRequest(const void* output, size_t size,
+        unsigned long timeout_ms);
+    virtual bool readRequest(unsigned long replytimeout_ms,
+        unsigned long readtimeout_ms, long expectedLength,
+        bool async);
     virtual bool setEos(const char* eos, size_t eoslen);
     virtual bool supportsEvent(); // defaults to false
     virtual bool supportsAsyncRead(); // defaults to false
     virtual bool acceptEvent(unsigned long mask, // implement if
         unsigned long replytimeout_ms);     // supportsEvents() returns true
     virtual void release();
+    virtual bool connectRequest(unsigned long connecttimeout_ms);
+    virtual bool disconnect();
+    virtual void cancelAll();
 
 // pure virtual
     virtual bool lockRequest(unsigned long timeout_ms) = 0;
     virtual bool unlock() = 0;
-    virtual bool writeRequest(const void* output, size_t size,
-        unsigned long timeout_ms) = 0;
-    virtual bool readRequest(unsigned long replytimeout_ms,
-        unsigned long readtimeout_ms, long expectedLength,
-        bool async) = 0;
 
 public:
 // static methods
@@ -132,8 +149,6 @@ class StreamBusInterfaceRegistrarBase
 protected:
     const char* name;
     StreamBusInterfaceRegistrarBase(const char* name);
-public:
-    const char* getName() { return name; }
 };
     
 template <class C>
@@ -150,8 +165,9 @@ public:
 
 #define RegisterStreamBusInterface(interface) \
 template class StreamBusInterfaceRegistrar<interface>; \
-static StreamBusInterfaceRegistrar<interface> \
-registrar_##interface(#interface)
+StreamBusInterfaceRegistrar<interface> \
+registrar_##interface(#interface); \
+void* ref_##interface = &registrar_##interface\
 
 // Interface class iterator
 

@@ -22,26 +22,10 @@
 #define devStream_h
 
 #define STREAM_MAJOR 2
-#define STREAM_MINOR 1
-extern const char StreamVersion [];
+#define STREAM_MINOR 2
 
 #if defined(__vxworks) || defined(vxWorks)
 #include <vxWorks.h>
-#endif
-
-#include <stdio.h>
-#include <epicsVersion.h>
-#include <dbCommon.h>
-#include <dbScan.h>
-#include <devSup.h>
-#include <dbFldTypes.h>
-#include <dbAccess.h>
-#include <epicsVersion.h>
-
-#if (EPICS_VERSION==3 && EPICS_REVISION>=14)
-#include <epicsExport.h>
-#else
-#define epicsExportAddress(a,b);
 #endif
 
 #ifndef OK
@@ -55,16 +39,42 @@ extern const char StreamVersion [];
 #define DO_NOT_CONVERT 2
 #define INIT_RUN (!interruptAccept)
 
-extern FILE* StreamDebugFile;
+#include <epicsVersion.h>
+#if (EPICS_VERSION == 3 && EPICS_REVISION == 14)
+#define EPICS_3_14
+#endif
 
-#ifdef __cplusplus
+#if defined(__cplusplus) && !defined(EPICS_3_14)
 extern "C" {
 #endif
+
+#include <stdio.h>
+#include <dbCommon.h>
+#include <dbScan.h>
+#include <devSup.h>
+/* #include <dbFldTypes.h> */
+#include <dbAccess.h>
+
+#if defined(__cplusplus) && !defined(EPICS_3_14)
+}
+#endif
+
 
 typedef const struct format_s {
     unsigned char type;
     const struct StreamFormat* priv;
 } format_t;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifdef _WIN32
+__declspec(dllimport)
+#endif
+extern FILE* StreamDebugFile;
+
+extern const char StreamVersion [];
 
 typedef long (*streamIoFunction) (dbCommon*, format_t*);
 

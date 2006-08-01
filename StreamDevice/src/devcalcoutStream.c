@@ -19,8 +19,7 @@
 
 #include <devStream.h>
 #include <calcoutRecord.h>
-
-#if (EPICS_VERSION==3 && EPICS_REVISION>=14)
+#include <epicsExport.h>
 
 static long readData (dbCommon *record, format_t *format)
 {
@@ -90,5 +89,3 @@ struct {
 };
 
 epicsExportAddress(dset,devcalcoutStream);
-
-#endif

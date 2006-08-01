@@ -24,14 +24,14 @@
 
 // Binary ASCII Converter %b and %B
 
-class StreamBinaryConverter : public StreamFormatConverter
+class BinaryConverter : public StreamFormatConverter
 {
     int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int printLong(const StreamFormat&, StreamBuffer&, long);
+    bool printLong(const StreamFormat&, StreamBuffer&, long);
     int scanLong(const StreamFormat&, const char*, long&);
 };
 
-int StreamBinaryConverter::
+int BinaryConverter::
 parse(const StreamFormat& format, StreamBuffer& info,
     const char*& source, bool)
 {
@@ -57,7 +57,7 @@ parse(const StreamFormat& format, StreamBuffer& info,
     return long_format;
 }
 
-int StreamBinaryConverter::
+bool BinaryConverter::
 printLong(const StreamFormat& format, StreamBuffer& output, long value)
 {
     int prec = format.prec;
@@ -95,7 +95,7 @@ printLong(const StreamFormat& format, StreamBuffer& output, long value)
     return true;
 }
 
-int StreamBinaryConverter::
+int BinaryConverter::
 scanLong(const StreamFormat& format, const char* input, long& value)
 {
     long val = 0;
@@ -115,4 +115,4 @@ scanLong(const StreamFormat& format, const char* input, long& value)
     return length;
 }
 
-RegisterConverter (StreamBinaryConverter, "bB");
+RegisterConverter (BinaryConverter, "bB");

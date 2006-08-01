@@ -24,6 +24,8 @@ dt {
 h1 {
     font-size:225%;
     margin-top:0;
+    font-style:italic;
+    font-family:serif;
 }
 
 h2 {

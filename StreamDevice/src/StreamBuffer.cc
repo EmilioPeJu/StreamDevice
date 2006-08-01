@@ -24,8 +24,8 @@
 #include <stdarg.h>
 #include <stdlib.h>
 
-#if defined(__vxworks) || defined(vxWorks)
-// vxWorks has no vsnprintf
+#if defined(__vxworks) || defined(vxWorks) || defined(_WIN32)
+// vxWorks and Windows have no vsnprintf
 #include <epicsStdio.h>
 #define vsnprintf epicsVsnprintf
 #endif

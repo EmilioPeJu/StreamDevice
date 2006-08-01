@@ -125,9 +125,9 @@ clean up.
 <a name="cmd"></a>
 <h2>3. Commands</h2>
 <p>
-Five different commands can be used in a protocol:
+Seven different commands can be used in a protocol:
 <code>out</code>, <code>in</code>, <code>wait</code>, <code>event</code>,
-and <code>exec</code>.
+<code>exec</code>, <code>disconnect</code>, and <code>connect</code>.
 Most protocols will consist only of a single <code>out</code> command to
 write some value,
 or an <code>out</code> command followed by an <code>in</code> command to
@@ -175,6 +175,24 @@ But there can be any number of commands in a protocol.
  <dd>
   The argument <a href="#str">string</a> is passed to the IOC shell
   as a command to execute.  
+ </dd>
+ <dt><code>disconnect;</code></dt>
+ <dd>
+  Disconnect from the hardware.
+  This is probably not supported by all busses.
+  Any <code>in</code> or <code>out</code> command will automatically
+  reconnect.
+  Only records reading in 
+  <a href="processing.html#iointr">"I/O Intr"</a> mode
+  will not cause a reconnect.
+ </dd>
+ <dt><code>connect <i>milliseconds</i>;</code></dt>
+ <dd>
+  Explicitely connect to the hardware with <code><i>milliseconds</i></code>
+  timeout.
+  Since connection is handled automatically, this command is normally not
+  needed.
+  It may be useful after a <code>disconnect</code>.
  </dd>
 </dl>
 

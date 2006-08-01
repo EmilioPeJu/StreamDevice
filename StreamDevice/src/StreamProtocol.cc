@@ -74,13 +74,13 @@ StreamProtocolParser::
 void StreamProtocolParser::
 errorMsg(const char* fmt, ...)
 {
-    fprintf(stderr, "\033[31;1mStream protocol file '%s' line %d: ",
-        filename(), line);
+    char fmt2[200];
+    sprintf (fmt2, "'%s' line %d: %s",
+        filename(), line, fmt);
     va_list args;
     va_start(args, fmt);
-    vfprintf(stderr, fmt, args);
+    StreamVError(fmt2, args);
     va_end(args);
-    fprintf(stderr, "\033[0m");
 }
 
 void StreamProtocolParser::
@@ -321,7 +321,7 @@ parseProtocol(Protocol& protocol, StreamBuffer* commands)
         }
         if (op == '{') // protocol or handler definition
         {
-            token.truncate(-1-sizeof(int));
+            token.truncate(-1-(int)sizeof(int));
             if (token[0] == '@') // handler
             {
                 if (isHandlerContext(protocol, commands))
@@ -356,14 +356,16 @@ parseProtocol(Protocol& protocol, StreamBuffer* commands)
                     return false;
                 }
             }
-            // append new protocol to parser
-            *ppP = new Protocol(protocol, token, startline);
-            if (!parseProtocol(**ppP, (*ppP)->commands))
+            Protocol* pP = new Protocol(protocol, token, startline);
+            if (!parseProtocol(*pP, pP->commands))
             {
                 line = startline;
                 errorMsg("in protocol '%s'\n", token());
+                delete pP;
                 return false;
             }
+            // append new protocol to parser
+            *ppP = pP;
             continue;
         }
         // Must be a command or a protocol reference.
@@ -769,13 +771,13 @@ StreamProtocolParser::Protocol::
 void StreamProtocolParser::Protocol::
 errorMsg(int l, const char* fmt, ...)
 {
+    char fmt2[200];
+    sprintf (fmt2, "'%s' line %d: %s",
+        filename(), line, fmt);
     va_list args;
-    fprintf(stderr, "\033[31;1mStream protocol file '%s' line %d: ",
-        filename(), l);
     va_start(args, fmt);
-    vfprintf(stderr, fmt, args);
+    StreamVError(fmt2, args);
     va_end(args);
-    fprintf(stderr, "\033[0m");
 }
 
 void StreamProtocolParser::Protocol::
@@ -1044,7 +1046,7 @@ compileNumber(unsigned long& number, const char*& source, unsigned long max)
         {
             if(!replaceVariable(buffer, source)) return false;
             debug("buffer=%s\n", buffer.expand()());
-            buffer.truncate(-1-sizeof(int));
+            buffer.truncate(-1-(int)sizeof(int));
         }
         else
         {
@@ -1127,6 +1129,7 @@ compileString(StreamBuffer& buffer, const char*& source,
                 if (!compileFormat(formatbuffer, p, formatType, client))
                 {
                     p = buffer(pos);
+                    formatbuffer.clear();
                     printString(formatbuffer, p);
                     errorMsg(line, "in format string: \"%s\"\n",
                             formatbuffer());
@@ -1439,12 +1442,11 @@ compileFormat(StreamBuffer& buffer, const char*& formatstr,
         if (!client->getFieldAddress(buffer(fieldname), fieldAddress))
         {
             errorMsg(line,
-                "Field '%s' of '%s' not found\n",
-                buffer(fieldname), client->name());
+                "Field '%s' not found\n", buffer(fieldname));
             return false;
         }
         source = fieldnameEnd;
-        unsigned short length = fieldAddress.length();
+        unsigned short length = (unsigned short)fieldAddress.length();
         buffer.append(&length, sizeof(length));
         buffer.append(fieldAddress);
     }
@@ -1529,19 +1531,12 @@ compileFormat(StreamBuffer& buffer, const char*& formatstr,
             "Field width %ld out of range\n", val);
         return false;
     }
-    streamFormat.width = val;
+    streamFormat.width = (unsigned short)val;
     // look for prec
     streamFormat.prec = -1;
     if (*source == '.')
     {
         source++;
-        if (formatType != PrintFormat)
-        {
-            errorMsg(line,
-                "Use of precision field only allowed "
-                "in output formats\n");
-            return false;
-        }
         val = strtoul(source, &p, 10);
         if (p == source)
         {
@@ -1557,7 +1552,7 @@ compileFormat(StreamBuffer& buffer, const char*& formatstr,
                 "Precision %ld out of range\n", val);
             return false;
         }
-        streamFormat.prec = val;
+        streamFormat.prec = (short)val;
     }
     // look for converter
     streamFormat.conv = *source++;
@@ -1609,7 +1604,7 @@ compileFormat(StreamBuffer& buffer, const char*& formatstr,
         // terminate if necessary
         infoString.append(eos);
     }
-    streamFormat.infolen = infoString.length();
+    streamFormat.infolen = (unsigned short)infoString.length();
     // add formatstr for debug purpose
     buffer.append(formatstart, source-formatstart).append(eos);
 

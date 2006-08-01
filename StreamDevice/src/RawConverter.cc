@@ -23,21 +23,21 @@
 
 // Raw Bytes Converter %r
 
-class StreamRawConverter : public StreamFormatConverter
+class RawConverter : public StreamFormatConverter
 {
     int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
-    int printLong(const StreamFormat&, StreamBuffer&, long);
+    bool printLong(const StreamFormat&, StreamBuffer&, long);
     int scanLong(const StreamFormat&, const char*, long&);
 };
 
-int StreamRawConverter::
+int RawConverter::
 parse(const StreamFormat&, StreamBuffer&,
     const char*&, bool)
 {
     return long_format;
 }
 
-int StreamRawConverter::
+bool RawConverter::
 printLong(const StreamFormat& format, StreamBuffer& output, long value)
 {
     int prec = format.prec;   // number of bytes from value
@@ -49,7 +49,7 @@ printLong(const StreamFormat& format, StreamBuffer& output, long value)
     {
         while (prec--)
         {
-            byte = value & 0xFF;
+            byte = static_cast<char>(value);
             output.append(byte);
             value >>= 8;
             width--;
@@ -70,13 +70,13 @@ printLong(const StreamFormat& format, StreamBuffer& output, long value)
         }
         while (prec--)
         {
-            output.append((value >> (8 * prec)) & 0xFF);
+            output.append(static_cast<char>(value >> (8 * prec)));
         }
     }
     return true;
 }
 
-int StreamRawConverter::
+int RawConverter::
 scanLong(const StreamFormat& format, const char* input, long& value)
 {
     long length = 0;
@@ -116,4 +116,4 @@ scanLong(const StreamFormat& format, const char* input, long& value)
     return length;
 }
 
-RegisterConverter (StreamRawConverter, "r");
+RegisterConverter (RawConverter, "r");

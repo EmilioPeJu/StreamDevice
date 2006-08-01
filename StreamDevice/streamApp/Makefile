@@ -1,5 +1,14 @@
 TOP=../..
 
+# Look if we have EPICS R3.13 or R3.14
+ifeq ($(wildcard $(TOP)/configure),)
+# EPICS R3.13
+include $(TOP)/config/CONFIG_APP
+# The real work is in Makefile.Vx
+include $(TOP)/config/RULES_ARCHS
+else
+
+# EPICS R3.14
 include $(TOP)/configure/CONFIG
 
 HOST_OPT = NO
@@ -8,19 +17,20 @@ PROD = streamApp
 DBD  = streamApp.dbd
 
 streamApp_DBD += base.dbd
+streamApp_DBD += aaiRecord.dbd aaoRecord.dbd
 
 PROD_SRCS += streamApp_registerRecordDeviceDriver.cpp
 PROD_SRCS_DEFAULT = streamAppMain.cc
 PROD_SRCS_vxWorks = -nil-
 
-# For vxWorks use the OBJLIB
-PROD_LIBS_DEFAULT = stream
-PROD_LIBS_vxWorks = -nil-
-PROD_OBJS_vxWorks = $(PROD_LIBS_DEFAULT:%=$(INSTALL_BIN)/%Library)
+PROD_LIBS = stream
 
 ifdef ASYN
 # Which types of asyn busses do you have?
+ifneq ($(OS_CLASS), WIN32)
+# asynDriver does not support serial port for Windows
 streamApp_DBD += drvAsynSerialPort.dbd
+endif
 streamApp_DBD += drvAsynIPPort.dbd
 #streamApp_DBD += drvGsIP488.dbd
 #streamApp_DBD += drvNi1014.dbd
@@ -40,16 +50,20 @@ streamApp_DBD += stream.dbd
 
 PROD_LIBS += $(EPICS_BASE_IOC_LIBS)
 
-#Write StreamDevice debug output to this file
+# Write StreamDevice debug output to this file
 CPPFLAGS += -DDEBUGFILE=StreamDebug.log
 
 include $(TOP)/configure/RULES
 
-clean::
-	rm -f core*
+clean realclean::
+	rm -f core* streamApp streamApp.exe* StreamDebug.log
 
 build: link
 
 link:
-	rm -f ../streamApp
-	ln -s O.$(EPICS_HOST_ARCH)/streamApp ../streamApp
+	rm -f ../streamApp$(EXE)
+	ln -s O.$(EPICS_HOST_ARCH)/streamApp$(EXE) ../streamApp$(EXE)
+
+endif
+
+

@@ -81,3 +81,58 @@ release ()
     delete this;
 }
 
+bool StreamBusInterface::
+connectRequest (unsigned long)
+{
+    return false;
+}
+
+bool StreamBusInterface::
+disconnect ()
+{
+    return false;
+}
+
+bool StreamBusInterface::
+writeRequest(const void*, size_t, unsigned long)
+{
+    return false;
+}
+
+bool StreamBusInterface::
+readRequest(unsigned long, unsigned long, long, bool)
+{
+    return false;
+}
+
+void StreamBusInterface::
+cancelAll()
+{
+}
+
+void StreamBusInterface::Client::
+writeCallback(IoStatus)
+{
+}
+
+long StreamBusInterface::Client::
+readCallback(IoStatus, const void*, long)
+{
+    return 0;
+}
+
+void StreamBusInterface::Client::
+eventCallback(IoStatus)
+{
+}
+
+void StreamBusInterface::Client::
+connectCallback(IoStatus)
+{
+}
+
+long StreamBusInterface::Client::
+priority()
+{
+    return 0;
+}

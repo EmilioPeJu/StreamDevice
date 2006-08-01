@@ -21,29 +21,52 @@
 #include "StreamCore.h"
 #include "StreamError.h"
 #include "devStream.h"
+
+#ifndef EPICS_3_14
+extern "C" {
+#endif
+
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <asynDriver.h>
-#include <dbAccess.h>
 #include <dbStaticLib.h>
-#include <devSup.h>
 #include <drvSup.h>
 #include <recSup.h>
 #include <recGbl.h>
 #include <devLib.h>
-#include <dbScan.h>
 #include <alarm.h>
 #include <callback.h>
+
+#ifndef EPICS_3_14
+
+#include <semLib.h>
+#include <wdLib.h>
+
+extern DBBASE *pdbbase;
+
+} // extern "C"
+
+#else
+
 #include <epicsTimer.h>
 #include <epicsMutex.h>
 #include <epicsEvent.h>
 #include <epicsTime.h>
 #include <registryFunction.h>
-
 #include <iocsh.h>
 
+#if EPICS_MODIFICATION<9
+extern "C" {
+// iocshCmd() is missing in iocsh.h (up to R3.14.8.2)
+// To build with win32-x86, you MUST fix iocsh.h.
+// Move the declaration below to iocsh.h and rebuild base.
+epicsShareFunc int epicsShareAPI iocshCmd(const char *command);
+}
+#endif
+
 #include <epicsExport.h>
+
+#endif
 
 #if defined(__vxworks) || defined(vxWorks)
 #include <symLib.h>
@@ -57,17 +80,28 @@ enum MoreFlags {
 };
 
 extern "C" void streamExecuteCommand(CALLBACK *pcallback);
+extern "C" long streamReload(char* recordname);
 
-class Stream : protected StreamCore, epicsTimerNotify
+class Stream : protected StreamCore
+#ifdef EPICS_3_14
+    , epicsTimerNotify
+#endif
 {
     dbCommon* record;
     struct link *ioLink;
     streamIoFunction readData;
     streamIoFunction writeData;
+#ifdef EPICS_3_14
     epicsTimerQueueActive* timerQueue;
     epicsTimer* timer;
     epicsMutex mutex;
     epicsEvent initDone;
+#else
+    WDOG_ID timer;
+    CALLBACK timeoutCallback;
+    SEM_ID mutex;
+    SEM_ID initDone;
+#endif
     StreamBuffer fieldBuffer;
     int status;
     int convert;
@@ -76,13 +110,17 @@ class Stream : protected StreamCore, epicsTimerNotify
     CALLBACK commandCallback;
 
 
-// epicsTimerNotify methods
+#ifdef EPICS_3_14
+// epicsTimerNotify method
     expireStatus expire(const epicsTime&);
+#else
+    static void expire(CALLBACK *pcallback);
+#endif
 
 // StreamCore methods
     // void protocolStartHook(); // Nothing to do here?
     void protocolFinishHook(ProtocolResult);
-    void startTimer(unsigned short timeout);
+    void startTimer(unsigned long timeout);
     bool getFieldAddress(const char* fieldname,
         StreamBuffer& address);
     bool formatValue(const StreamFormat&,
@@ -123,8 +161,11 @@ public:
 
 
 // shell functions ///////////////////////////////////////////////////////
-
+#ifdef EPICS_3_14
+extern "C" {
 epicsExportAddress(int, streamDebug);
+}
+#endif
 
 #ifdef MEMGUARD
 static const iocshFuncDef memguardReportDef =
@@ -136,13 +177,13 @@ static void memguardReportFunc (const iocshArgBuf *args)
 }
 #endif
 
-long streamReloadSub()
+// for subroutine record
+extern "C" long streamReloadSub()
 {
-    // for subroutine record
     return streamReload(NULL);
 }
 
-long streamReload(char* recordname)
+extern "C" long streamReload(char* recordname)
 {
     DBENTRY	dbentry;
     dbCommon*   record;
@@ -185,6 +226,7 @@ long streamReload(char* recordname)
     return OK;
 }
 
+#ifdef EPICS_3_14
 static const iocshArg streamReloadArg0 =
     { "recordname", iocshArgString };
 static const iocshArg * const streamReloadArgs[] =
@@ -206,9 +248,14 @@ static void streamRegistrar ()
     // make streamReload available for subroutine records
     registryFunctionAdd("streamReload",
         (REGISTRYFUNCTION)streamReloadSub);
+    registryFunctionAdd("streamReloadSub",
+        (REGISTRYFUNCTION)streamReloadSub);
 }
 
+extern "C" {
 epicsExportRegistrar(streamRegistrar);
+}
+#endif // EPICS_3_14
 
 // driver support ////////////////////////////////////////////////////////
 
@@ -222,31 +269,57 @@ struct {
     Stream::drvInit
 };
 
+#ifdef EPICS_3_14
+extern "C" {
 epicsExportAddress(drvet, stream);
-
-void streamEpicsPrintTimestamp(FILE* file)
-{
-    char buffer [40];
-    epicsTimeStamp tm;
-    epicsTimeGetCurrent (&tm);
-    epicsTimeToStrftime(buffer, 40, "%Y/%m/%d %H:%M:%S ", &tm);
-    fprintf(file, buffer);
 }
+
+void streamEpicsPrintTimestamp(char* buffer, int size)
+{
+    epicsTime tm = epicsTime::getCurrent();
+    tm.strftime(buffer, size, "%Y/%m/%d %H:%M:%S.%03f");
+}
+#else
+void streamEpicsPrintTimestamp(char* buffer, int size)
+{
+    char* c;
+    TS_STAMP tm;
+    tsLocalTime (&tm);
+    tsStampToText(&tm, TS_TEXT_MMDDYY, buffer);
+    c = strchr(buffer,'.');
+    if (c) {
+        c[4] = 0;
+    }
+}
+#endif
 
 long Stream::
 report(int interest)
 {
     debug("Stream::report(interest=%d)\n", interest);
     printf("  %s\n", StreamVersion);
-    printf("  registered bus interfaces:\n");
 
+    printf("  registered bus interfaces:\n");
     StreamBusInterfaceClass interface;
     while (interface)
     {
         printf("    %s\n", interface.name());
         ++interface;
     }
+    
     if (interest < 1) return OK;
+    printf("  registered converters:\n");
+    StreamFormatConverter* converter;
+    int c;
+    for (c=0; c < 256; c++)
+    {
+        converter = StreamFormatConverter::find(c);
+        if (converter)
+        {
+            printf("    %%%c %s\n", c, converter->name());
+        }
+    }
+    
     Stream* pstream;
     printf("  connected records:\n");
     for (pstream = static_cast<Stream*>(first); pstream;
@@ -274,12 +347,18 @@ drvInit()
     char* path;
     debug("drvStreamInit()\n");
     path = getenv("STREAM_PROTOCOL_PATH");
-#ifdef __vxworks
-    // for compatibility reasons look for global symbol
+#if defined(__vxworks) || defined(vxWorks)
+    // for compatibility reasons look for global symbols
     if (!path)
     {
         char* symbol;
         SYM_TYPE type;
+        if (symFindByName(sysSymTbl,
+            "STREAM_PROTOCOL_PATH", &symbol, &type) == OK)
+        {
+            path = *(char**)symbol;
+        }
+        else
         if (symFindByName(sysSymTbl,
             "STREAM_PROTOCOL_DIR", &symbol, &type) == OK)
         {
@@ -357,7 +436,7 @@ long streamGetIointInfo(int cmd, dbCommon *record, IOSCANPVT *ppvt)
 {
     Stream* pstream = (Stream*)record->dpvt;
     debug("streamGetIointInfo(%s,cmd=%d): pstream=%p, ioscanpvt=%p\n",
-        record->name, cmd, pstream, pstream ? pstream->ioscanpvt : NULL);
+        record->name, cmd, (void*)pstream, pstream ? pstream->ioscanpvt : NULL);
     if (!pstream)
     {
         error("streamGetIointInfo called without stream instance\n");
@@ -430,8 +509,18 @@ Stream(dbCommon* _record, struct link *ioLink,
 :record(_record), ioLink(ioLink), readData(readData), writeData(writeData)
 {
     streamname = record->name;
+#ifdef EPICS_3_14
     timerQueue = &epicsTimerQueueActive::allocate(true);
     timer = &timerQueue->createTimer();
+#else
+    timer = wdCreate();
+    mutex = semMCreate(SEM_INVERSION_SAFE | SEM_Q_PRIORITY);
+    initDone = semBCreate(SEM_Q_FIFO, SEM_EMPTY);
+    callbackSetCallback(expire, &timeoutCallback);
+    callbackSetUser(this, &timeoutCallback);
+#endif
+    callbackSetCallback(streamExecuteCommand, &commandCallback);
+    callbackSetUser(this, &commandCallback);
     status = ERROR;
     convert = DO_NOT_CONVERT;
     ioscanpvt = NULL;
@@ -442,7 +531,7 @@ Stream::
 {
     lockMutex();
     flags |= InDestructor;;
-    debug("~Stream(%s) %p\n", name(), this);
+    debug("~Stream(%s) %p\n", name(), (void*)this);
     if (record->dpvt)
     {
         finishProtocol(Abort);
@@ -450,11 +539,15 @@ Stream::
         record->dpvt = NULL;
         debug("~Stream(%s): dpvt cleared\n", name());
     }
-    timer->cancel();
+#ifdef EPICS_3_14
     timer->destroy();
     debug("~Stream(%s): timer destroyed\n", name());
     timerQueue->release();
     debug("~Stream(%s): timer queue released\n", name());
+#else
+    wdDelete(timer);
+    debug("~Stream(%s): watchdog destroyed\n", name());
+#endif
     releaseMutex();
 }
 
@@ -549,8 +642,12 @@ initRecord()
     }
     debug("Stream::initRecord %s: waiting for initDone\n",
         name());
+#ifdef EPICS_3_14
     initDone.wait();
-    debug("Stream::initRecord %s: initDone.\n",
+#else
+    semTake(initDone, WAIT_FOREVER);
+#endif
+    debug("Stream::initRecord %s: initDone\n",
         name());
 
     // init run has set status and convert
@@ -659,7 +756,11 @@ scan(format_t *format, void* value, size_t maxStringSize)
             error("INTERNAL ERROR (%s): Illegal format type\n", name());
             return false;
     }
-    if (currentValueLength < 0) return false;
+    if (currentValueLength < 0) 
+    {
+        currentValueLength = 0;
+        return false;
+    }
     // Don't remove scanned value from inputLine yet, because
     // we might need the string in a later error message.
     return true;
@@ -667,12 +768,21 @@ scan(format_t *format, void* value, size_t maxStringSize)
 
 // epicsTimerNotify virtual method ///////////////////////////////////////
 
-Stream::expireStatus Stream::
+#ifdef EPICS_3_14
+epicsTimerNotify::expireStatus Stream::
 expire(const epicsTime&)
 {
     timerCallback();
     return noRestart;
 }
+#else
+void Stream::
+expire(CALLBACK *pcallback)
+{
+    Stream* pstream = static_cast<Stream*>(pcallback->user);
+    pstream->timerCallback();
+}
+#endif
 
 // StreamCore virtual methods ////////////////////////////////////////////
 
@@ -724,7 +834,11 @@ protocolFinishHook(ProtocolResult result)
     }
     if (flags & InitRun)
     {
+#ifdef EPICS_3_14
         initDone.signal();
+#else
+        semGive(initDone);
+#endif
         return;
     }
     if (record->pact || record->scan == SCAN_IO_EVENT)
@@ -737,7 +851,7 @@ protocolFinishHook(ProtocolResult result)
         ((DEVSUPFUN)record->rset->process)(record);
         dbScanUnlock(record);
 
-        debug("Stream::protocolFinishHook(stream=%s,result=%d) done.\n",
+        debug("Stream::protocolFinishHook(stream=%s,result=%d) done\n",
             name(), result);
     }
     if (result != Abort && record->scan == SCAN_IO_EVENT)
@@ -754,25 +868,41 @@ protocolFinishHook(ProtocolResult result)
 }
 
 void Stream::
-startTimer(unsigned short timeout)
+startTimer(unsigned long timeout)
 {
-    debug("Stream::startTimer(stream=%s, timeout=%hu) = %f seconds\n",
+    debug("Stream::startTimer(stream=%s, timeout=%lu) = %f seconds\n",
         name(), timeout, timeout * 0.001);
+#ifdef EPICS_3_14
     timer->start(*this, timeout * 0.001);
+#else
+    callbackSetPriority(priority(), &timeoutCallback);
+    wdStart(timer, (timeout+1)*sysClkRateGet()/1000-1,
+        reinterpret_cast<FUNCPTR>(callbackRequest),
+        reinterpret_cast<int>(&timeoutCallback));
+#endif
 }
 
 bool Stream::
 getFieldAddress(const char* fieldname, StreamBuffer& address)
 {
     DBADDR dbaddr;
-    char fullname[PVNAME_SZ + 1];
-    sprintf(fullname, "%s.%s", name(), fieldname);
-    if (dbNameToAddr(fullname, &dbaddr) != OK) return false;
+    if (strchr(fieldname, '.') != NULL)
+    {
+        // record.FIELD (access to other record)
+        if (dbNameToAddr(fieldname, &dbaddr) != OK) return false;
+    }
+    else
+    {
+        // FIELD in this record
+        char fullname[PVNAME_SZ + 1];
+        sprintf(fullname, "%s.%s", name(), fieldname);
+        if (dbNameToAddr(fullname, &dbaddr) != OK) return false;
+    }
     address.append(&dbaddr, sizeof(dbaddr));
     return true;
 }
 
-static const short dbfMapping[] =
+static const unsigned char dbfMapping[] =
     {0, DBF_LONG, DBF_ENUM, DBF_DOUBLE, DBF_STRING};
 static const short typeSize[] =
     {0, sizeof(epicsInt32), sizeof(epicsUInt16),
@@ -797,7 +927,11 @@ formatValue(const StreamFormat& format, const void* fieldaddress)
         if (dbGet(pdbaddr, dbfMapping[format.type], buffer,
             NULL, &nelem, NULL) != 0)
         {
-            error("%s: dbGet() failed\n", name());
+            error("%s: dbGet(%s.%s, %s) failed\n",
+                name(),
+                pdbaddr->precord->name,
+                ((dbFldDes*)pdbaddr->pfldDes)->name,
+                pamapdbfType[dbfMapping[format.type]].strvalue);
             return false;
         }
         for (i = 0; i < nelem; i++)
@@ -855,20 +989,22 @@ matchValue(const StreamFormat& format, const void* fieldaddress)
 {
     // this function must increase consumedInput
     long consumed;
+    long lval;
+    double dval;
+    char* buffer;
     if (fieldaddress)
     {
         DBADDR* pdbaddr = (DBADDR*)fieldaddress;
         long nord;
         long nelem = pdbaddr->no_elements;
         size_t size = nelem * typeSize[format.type];
-        char* buffer = fieldBuffer.clear().reserve(size);
+        buffer = fieldBuffer.clear().reserve(size);
         for (nord = 0; nord < nelem; nord++)
         {
             switch (format.type)
             {
                 case long_format:
                 {
-                    long lval;
                     consumed = scanValue(format, lval);
                     if (consumed < 0) goto noMoreElements;
                     ((epicsInt32*)buffer)[nord] = lval;
@@ -876,15 +1012,13 @@ matchValue(const StreamFormat& format, const void* fieldaddress)
                 }
                 case enum_format:
                 {
-                    long lval;
                     consumed = scanValue(format, lval);
                     if (consumed < 0) goto noMoreElements;
-                    ((epicsUInt16*)buffer)[nord] = lval;
+                    ((epicsUInt16*)buffer)[nord] = (epicsUInt16)lval;
                     break;
                 }
                 case double_format:
                 {
-                    double dval;
                     consumed = scanValue(format, dval);
                     if (consumed < 0) goto noMoreElements;
                     ((epicsFloat64*)buffer)[nord] = dval;
@@ -910,8 +1044,33 @@ noMoreElements:
             fieldBuffer(), nord) != 0)
         {
             flags &= ~ScanTried;
-            error("%s: dbPut failed\n", name());
-            return false;
+            switch (format.type)
+            {
+                case long_format:
+                case enum_format:
+                    error("%s: dbPut(%s.%s, %s, %li) failed\n",
+                        name(), pdbaddr->precord->name,
+                        ((dbFldDes*)pdbaddr->pfldDes)->name,
+                        pamapdbfType[dbfMapping[format.type]].strvalue,
+                        lval);
+                    return false;
+                case double_format:
+                    error("%s: dbPut(%s.%s, %s, %#g) failed\n",
+                        name(), pdbaddr->precord->name,
+                        ((dbFldDes*)pdbaddr->pfldDes)->name,
+                        pamapdbfType[dbfMapping[format.type]].strvalue,
+                        dval);
+                    return false;
+                case string_format:
+                    error("%s: dbPut(%s.%s, %s, \"%s\") failed\n",
+                        name(), pdbaddr->precord->name,
+                        ((dbFldDes*)pdbaddr->pfldDes)->name,
+                        pamapdbfType[dbfMapping[format.type]].strvalue,
+                        buffer);
+                    return false;
+                default:
+                    return false;
+            }
         }
         return true;
     }
@@ -943,10 +1102,9 @@ noMoreElements:
     return true;
 }
 
-// There is no header file for this
-extern "C" int iocshCmd (const char *cmd);
+#ifdef EPICS_3_14
 
-extern "C" void streamExecuteCommand(CALLBACK *pcallback)
+void streamExecuteCommand(CALLBACK *pcallback)
 {
     Stream* pstream = static_cast<Stream*>(pcallback->user);
     
@@ -959,13 +1117,28 @@ extern "C" void streamExecuteCommand(CALLBACK *pcallback)
         pstream->execCallback(StreamBusInterface::ioSuccess);
     }
 }
+#else
+extern "C" int execute (const char *cmd);
+
+void streamExecuteCommand(CALLBACK *pcallback)
+{
+    Stream* pstream = static_cast<Stream*>(pcallback->user);
+    
+    if (execute(pstream->outputLine()) != OK)
+    {
+        pstream->execCallback(StreamBusInterface::ioFault);
+    }
+    else
+    {
+        pstream->execCallback(StreamBusInterface::ioSuccess);
+    }
+}
+#endif
 
 bool Stream::
 execute()
 {
-    callbackSetCallback(streamExecuteCommand, &commandCallback);
-    callbackSetUser(priority(), &commandCallback);
-    callbackSetUser(this, &commandCallback);
+    callbackSetPriority(priority(), &commandCallback);
     callbackRequest(&commandCallback);
     return true;
 }
@@ -973,11 +1146,19 @@ execute()
 void Stream::
 lockMutex()
 {
+#ifdef EPICS_3_14
     mutex.lock();
+#else
+    semTake(mutex, WAIT_FOREVER);
+#endif
 }
 
 void Stream::
 releaseMutex()
 {
+#ifdef EPICS_3_14
     mutex.unlock();
+#else
+    semGive(mutex);
+#endif
 }

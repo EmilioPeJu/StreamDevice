@@ -28,7 +28,6 @@
 class DebugInterface : StreamBusInterface
 {
     DebugInterface(Client* client);
-    ~DebugInterface();
 
     // StreamBusInterface methods
     bool lockRequest(unsigned long lockTimeout_ms);
@@ -37,6 +36,9 @@ class DebugInterface : StreamBusInterface
         unsigned long writeTimeout_ms);
     bool readRequest(unsigned long replyTimeout_ms,
         unsigned long readTimeout_ms, long expectedLength, bool async);
+
+protected:
+    ~DebugInterface();
 
 public:
     // static creator method

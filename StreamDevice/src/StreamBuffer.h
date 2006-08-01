@@ -70,10 +70,10 @@ public:
 
     // operator (): get char* pointing to index
     const char* operator()(long index=0) const
-        {return buffer+offs+(index<0?index+len:index);}
+        {buffer[offs+len]=0; return buffer+offs+(index<0?index+len:index);}
 
     char* operator()(long index=0)
-        {return buffer+offs+(index<0?index+len:index);}
+        {buffer[offs+len]=0; return buffer+offs+(index<0?index+len:index);}
 
     // operator []: get byte at index
     char operator[](long index) const
