@@ -9,6 +9,8 @@
 # module defined in the RELEASE file is rebuilt.
 
 TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
+SUPPORT=/dls_sw/prod/R3.14.8.2/support
+WORK=/dls_sw/work/R3.14.8.2/support
 
 # If you don't want to install into $(TOP) then
 # define INSTALL_LOCATION_APP here
@@ -18,8 +20,8 @@ TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
 #SNCSEQ=$(EPICS_BASE)/../modules/soft/seq
 
 # EPICS_BASE usually appears last so other apps can override stuff:
-ASYN=/home/diamond/R3.14.8.2/prod/support/asyn/4-6
-EPICS_BASE=/home/epics/R3.14.8.2/base
+ASYN=		$(SUPPORT)/asyn/4-6
+EPICS_BASE=	/dls_sw/epics/R3.14.8.2/base
 
 #Capfast users may need the following definitions
 #CAPFAST_TEMPLATES=
