@@ -1,0 +1,150 @@
+<!DOCTYPE HTML PUBLIC "-//AdvaSoft//DTD HTML 3.2 extended 961018//EN">
+<HTML>
+<HEAD> 
+<TITLE>Stream Device</TITLE>
+</HEAD>
+<BODY BGCOLOR="#80D5D5" TEXT="#000000" LINK="#2020ff" VLINK="#101080" ALINK="#c02020">
+<TABLE WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+ <TR>
+  <TD ALIGN=center><H1>DELTA Control System</H1>
+   <H2>Dortmunder Elektronen Testspeicherring Anlage</H2>
+   <B>Universit&auml;t Dortmund</B>
+  <TD ALIGN=right VALIGN=top>
+   <IMG SRC="logodelta.gif" ALT="DELTA" WIDTH="108" HEIGHT="85">
+</TABLE>
+<HR NOSHADE SIZE="1"> </BR>
+<H2>Stream Device</H2>
+<H3>Version 1.5</H3>
+<HR NOSHADE SIZE="1"> </BR>
+
+<H3>What is the Stream Device Support ?</H3>
+ The Stream Device is an EPICS device support for many
+ <A HREF="recordtypes.html">record types</A>. It allows to connect records to
+ multiple hardware via arbitrary field bus architectures. Bus data must
+ appear as a (bidirectional) stream of bytes, often but not necessarily plain
+ ASCII text. To obtain flexibility, the device support is split into four
+ parts:
+ <UL>
+  <LI>bus interface</LI>
+  <LI>hardware dependent protocol</LI>
+  <LI>record interface</LI>
+  <LI>device support kernel</LI>
+ </UL>
+<P>
+ <B>Bus Interface</B><BR> 
+ To support multiple bus architectures, the Stream Device Support defines a
+ set of features, a bus must have. It is the job of the bus interface to
+ implement these features by talking to the bus driver or to the bus hardware
+ directly. Every stream capable bus has a name that is unique on the IOC.
+ There can be several busses, even with different bus interfaces on one IOC.
+ The Stream Device Support finds the correct interface and the bus instance on
+ the basis of this name. To support a new type of bus, you have to
+ <A HREF="businterface.html">write your own bus interface</A>.
+<P>
+ <B>Protocol</B><BR>
+ Each type of hardware connected to the bus has its own set of instructions
+ and data formats. Every action of the hardware device needs a sequence of
+ input and output operations and a number of
+ <A HREF="parameters.html">parameters</A> that affect data transfer
+ (terminators, timeouts, ...). We call this the protocol. All protocols for
+ one device type should be combined in one <A HREF="protocol.html">protocol
+ file</A>. The protocols neither depend on the bus architecture nor on the
+ recordtype, but only on the connected device. Thus, to support a new device
+ type, you only need to write a new protocol file. You do not need any C
+ coding, compiling or any knowledge of bus driver or EPICS internals. 
+<P>
+ <B>Record Interface</B><BR>
+ Since every record type has its own set of fields, the device support needs
+ to know what field to read or to write whenever it encounters a
+ <A HREF="format.html">format description</A> in the protocol. At the moment,
+ the Stream Device supports the <A HREF="recordtypes.html">record types</A>
+ <B>ai</B>, <B>ao</B>, <B>bi</B>, <B>bo</B>, <B>mbbi</B>, <B>mbbo</B>,
+ <B>mbbiDirect</B>, <B>mbboDirect</B>, <B>longin</B>, <B>longout</B>,
+ <B>stringin</B>, <B>stringout</B> and <B>waveform</B>. You have to extend it
+ if you want to <A HREF="recordinterface.html">support new record types</A>.
+<P>
+ <B>Kernel</B><BR>
+ The Stream Device kernel is the part that does most of the work. This
+ includes parsing the <A HREF="protocol.html">protocol file</A>,
+ <A HREF="processing.html">protocol processing</A>, reading and writing
+ <A HREF="format.html">formatted i/o</A>. You should never need to modify the
+ kernel. If you have found a bug in the kernel or if you think you need new
+ features, please send me an
+ <A HREF="mailto:zimoch@delta.uni-dortmund.de">email</A>. Do not redistribute
+ code you have changed.
+ 
+<H3>How to use the Stream Device Support</H3>
+ To enable the Stream Device Support, load the <TT><B>streamLib</TT></B> and
+ the <TT><B>stream.dbd</B></TT> database definition in the startup script. For
+ every used bus type load the interface
+ <TT><B>stream<I>Bustype</I>.o</B></TT> after eventually needed bus drivers.
+ If necessary, call the constuctors for the busses. Set the variable
+ <B><TT>STREAM_PROTOCOL_DIR</TT></B> to the absolute directory path containing
+ the protocol files.
+<P>
+ <B>Example startup script:</B>
+ <TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ 
+ # mount all needed stuff
+ nfsMount ("<I>host</I>", "/home/epics/ioc", "/ioc")
+ cd "/ioc"
+ 
+ # load all binaries 
+ ld &lt; bin/<I>arch</I>/iocCore
+ ld &lt; bin/<I>arch</I>/baseLib
+ ld &lt; bin/<I>arch</I>/streamLib
+ # we use the can02 CAN board and the iec03 GPIB board
+ ld &lt; bin/<I>arch</I>/can02Lib
+ ld &lt; bin/<I>arch</I>/streamCan.o
+ ld &lt; bin/<I>arch</I>/gpibLib
+ ld &lt; bin/<I>arch</I>/streamGpib.o
+ 
+ # call the bus constructors
+ can02Create "can1","can2",0xc,4,120
+ iec03Create "gpib1",0xd100,1,21,3,240
+
+ # load the database definitions
+ dbLoadDatabase "dbd/base.dbd"
+ dbLoadDatabase "dbd/stream.dbd"
+ 
+ # set the stream protocol directory
+ STREAM_PROTOCOL_DIR = "/ioc/share/streamProtocols"
+ 
+ # load the records
+ dbLoadTemplate "iocBoot/<I>target</I>/<I>whatever</I>.subst"
+ dbLoadRecords "iocBoot/<I>target</I>/<I>whatever</I>.db"
+ 
+ #this is nice for rlogin
+ shellPromptSet "<I>target</I>&gt; "
+ 
+ iocInit
+</PRE></TD></TR></TABLE>
+<P>
+ In a record that uses the Stream Device Support, set the <TT>DTYPE</TT>
+ field to <TT>"stream"</TT>. The hardware link (<TT>INP</TT> or <TT>OUT</TT>)
+ has the form:<BR>
+ <TT>"@protocolFile protocolName busName busParameters"</TT>.</BR>
+ Don't forget the <TT>@</TT>, EPICS needs it. The <I>busParameters</I>
+ depend on the bus type of <I>busName</I>. It may contain the channel number
+ on the bus and other parameters. You have 78 characters after the
+ <TT>@</TT>, even though the <I>Application Developers's Guide</I> says
+ you only have 35 characters (Version 3.13.0.beta4).
+<P>
+ <B>Example record definition:</B>
+ <TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ 
+ # a stream record connected to "gpib1", address 7
+ record (ao, "specana-span:set")
+ {
+    field (DTYP, "stream")
+    field (OUT,  "@HP5861A span.out gpib1 7")
+    ...
+ }
+</PRE></TD></TR></TABLE>
+<HR NOSHADE SIZE="1">
+<A HREF="processing.html">Next: Record Processing</A>
+<P>
+&copy;&nbsp;Sep 29 1999 / Sep 24 2001, Dirk Zimoch,
+<A HREF="mailto: zimoch@delta.uni-dortmund.de">zimoch@delta.uni-dortmund.de</A>
+</BODY>
+</HTML>

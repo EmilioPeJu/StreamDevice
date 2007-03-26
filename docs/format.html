@@ -1,0 +1,273 @@
+<!DOCTYPE HTML PUBLIC "-//AdvaSoft//DTD HTML 3.2 extended 961018//EN">
+<HTML>
+<HEAD> 
+<TITLE>Stream Device - Protocol Format Descriptions</TITLE>
+</HEAD>
+<BODY BGCOLOR="#80D5D5" TEXT="#000000" LINK="#2020ff" VLINK="#101080" ALINK="#c02020">
+<TABLE WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+ <TR>
+  <TD ALIGN=center><H1>DELTA Control System</H1>
+   <H2>Dortmunder Elektronen Testspeicherring Anlage</H2>
+   <B>Universit&auml;t Dortmund</B>
+  <TD ALIGN=right VALIGN=top>
+   <IMG SRC="logodelta.gif" ALT="DELTA" WIDTH="108" HEIGHT="85">
+</TABLE>
+<HR NOSHADE SIZE="1"> </BR>
+<H2> Stream Device - Protocol Format Descriptions</H2>
+<H3> Version 1.5</H3>
+<HR NOSHADE SIZE="1"> </BR>
+
+<P>
+ Quoted percent characters after <TT><B>in</B></TT> and <TT><B>out</B></TT>
+ commands in the body of a <A HREF="protocol.html">stream protocol</A>
+ description are interpreted as conversion specifications, very similar to
+ those in the C functions <TT>printf</TT> and <TT>scanf</TT>.
+ What variable to read or to write depends on the
+ <A HREF="recordtypes.html">record type</A> and the conversion character.
+ Generally, you can assume to access the <TT>VAL</TT>, <TT>RVAL</TT>
+ or <TT>RBV</TT> field of the record. 
+<P>
+ The format description consists of:
+ <UL>
+  <LI>the percent character <TT><B>%</B></TT></LI>
+  <LI>any number of modifiers
+   <TT><B>-+</B></TT>&lt;space&gt;<TT><B>0#*</B></TT></LI>
+  <LI>an optional field width (minimal output width / maximal input width)</LI>
+  <LI>an optional precision after a decimal point <TT><B>.</B></TT>
+    (output strings only)</LI>
+  <LI>one of the conversion characters <TT><B>feEgGiduoxXbrDcs{[</B></TT></LI>
+ </UL>
+ In contrast to <TT>printf</TT> and <TT>scanf</TT>, the datatype modifiers
+ <TT><B>h</B></TT>, <TT><B>l</B></TT> and <TT><B>L</B></TT> are not allowed.
+ To use the percent character literally, do <I>not</I> write
+ <TT><B>"%%"</B></TT> but <TT><B>"\%"</B></TT>.
+<P>
+ <B>The modifiers</B>
+ <TABLE>
+  <TR><TD valign="top"><TT><B>-</B></TT></TD>
+   <TD>print left adjusted within field width</TD></TR>
+  <TR><TD valign="top"><TT><B>+</B></TT></TD>
+   <TD>print sign even if not negative</TD></TR>
+  <TR><TD valign="top">&lt;space&gt;</TD>
+   <TD>print a leading space if no sign is printed</TD></TR>
+  <TR><TD valign="top"><TT><B>0</B></TT></TD>
+   <TD>fill field width with leading zeros</TD></TR>
+  <TR><TD valign="top"><TT><B>#</B></TT></TD>
+   <TD>use an alternative format</TD></TR>
+  <TR><TD valign="top"><TT><B>*</B></TT></TD>
+   <TD>read but ignore input</TD></TR>
+ </TABLE>
+ The first four modifiers only affect output strings. Not all modifiers are
+ supported by all conversions and not all conversions are supported by all
+ record types. The skip modifier <TT><B>*</B></TT> is only allowed in input
+ strings. A skipping conversion consumes input, but does not assign it to any
+ record field. Thus, any input conversion can be used if skipped,
+ independently of the record type.
+<P>
+ <B>The output conversion characters</B>
+ <TABLE
+  <TR><TD valign="top"><TT><B>f</B></TT></TD>
+   <TD>Write a <TT>double</TT> variable in fixed point decimal notation with
+   <I>precision</I> digits after the decimal point.<BR>
+   Supported modifiers:
+   <TT><B>+-</B></TT>&lt;space&gt;<TT><B>0#</B></TT><BR>
+   If <I>precision</I> is zero, print the decimal point character only if
+   modifier <TT><B>#</B></TT> is present.</TD></TR>
+
+  <TR><TD valign="top"><TT><B>eE</B></TT></TD>
+   <TD>Write a <TT>double</TT> variable in exponential decimal notation with
+   <I>precision</I> digits after the decimal point.<BR>
+   Supported modifiers:
+   <TT><B>+-</B></TT>&lt;space&gt;<TT><B>0#</B></TT><BR>
+   If <I>precision</I> is zero, print the decimal point character only if
+   modifier <TT><B>#</B></TT> is present.</TD></TR>
+
+  <TR><TD valign="top"><TT><B>gG</B></TT></TD>
+   <TD>Write a <TT>double</TT> variable in fixed point or exponential decimal
+   notation, depending on the value and <I>precision</I>. <BR>
+   Supported modifiers: <TT><B>+-</B></TT>&lt;space&gt;<TT><B>0#</B></TT><BR>
+   If modifier <TT><B>#</B></TT> is not present, trailing zeros after the
+   decimal point are removed and the decimal point character only appears if
+   followed by a digit.</TD></TR>
+
+  <TR><TD valign="top"><TT><B>id</B></TT></TD>
+   <TD>Write a <TT>signed long</TT> variable in decimal notation with at least
+   <I>precision</I> digits.<BR>
+   Supported modifiers:
+   <TT><B>+-</B></TT>&lt;space&gt;<TT><B>0</B></TT></TD></TR>
+
+  <TR><TD valign="top"><TT><B>u</B></TT></TD>
+   <TD>Write an <TT>unsigned long</TT> variable in decimal notation with at
+   least <I>precision</I> digits.<BR>
+   Supported modifiers:
+   <TT><B>-0</B></TT></TD></TR>
+
+  <TR><TD valign="top"><TT><B>o</B></TT></TD>
+   <TD>Write an <TT>unsigned long</TT> variable in octal notation with at
+   least <I>precision</I> digits.<BR>
+   Supported modifiers:
+   <TT><B>-0#</B></TT><BR>
+   If modifier <TT><B>#</B></TT> is present, add a leading
+   <TT><B>0</B></TT>.</TD></TR>
+
+  <TR><TD valign="top"><TT><B>xX</B></TT></TD>
+   <TD>Write an <TT>unsigned long</TT> variable in hexadecimal notation with
+   at least <I>precision</I> digits. Use letters <TT><B>abcdef</B></TT> or
+   <TT><B>ABCDEF</B></TT> for digits greater than 9 with conversion character
+   <TT><B>x</B></TT> or <TT><B>X</B></TT>, respectively.<BR>
+   Supported modifiers:
+   <TT><B>-0#</B></TT><BR>
+   If modifier <TT><B>#</B></TT> is present, add a leading <TT><B>0x</B></TT>
+   or <TT><B>0X</B></TT>.</TD></TR>
+
+  <TR><TD valign="top"><TT><B>b</B></TT></TD>
+   <TD>Write the <I>precision</I> least significant bits of an <TT>unsigned
+   long</TT> variable in binary notation (<TT><B>0</B></TT> or
+   <TT><B>1</B></TT>). If no <I>precision</I> is specified, start at the most
+   significant <TT><B>1</B></TT>-bit.<BR>
+   Supported modifiers:
+   <TT><B>-0</B></TT></TD></TR>
+
+  <TR><TD valign="top"><TT><B>r</B></TT></TD>
+   <TD>Write the <I>precision</I> least significant (default: 1) raw bytes of
+   a <TT>signed long</TT> variable (two's complement on almost any machine).
+   If the field width is greater than <I>precision</I>, fill with sign (i.e.
+   <TT><B>0x00</B></TT> or <TT><B>0xFF</B></TT>, depending on the most
+   significant bit within <I>precision</I> bytes).<BR>
+   Supported modifiers:
+   <TT><B>#</B></TT><BR>
+   The output byte order is big endian (most significant byte first) unless
+   the modifier <TT><B>#</B></TT> is present.</TD></TR>
+
+  <TR><TD valign="top"><TT><B>D</B></TT></TD>
+   <TD>Write a <TT>long</TT> or <TT>unsigned long</TT> variable in packed BCD
+   notation with <I>precision</I> (default: 1) nibbles.
+   If the field width is greater than <I>precision</I>/2, fill with
+   <TT><B>0</B></TT> nibbles.<BR>
+   Supported modifiers:
+   <TT><B>+#</B></TT><BR>
+   If the <TT><B>+</B></TT> modidier is present, the high nibble in the most
+   significant byte represents the sign (8 if negative, 0 if positive). The
+   output byte order is big endian (most significant byte first) unless
+   the modifier <TT><B>#</B></TT> is present.</TD></TR>
+
+  <TR><TD valign="top"><TT><B>c</B></TT></TD>
+   <TD>Write the ASCII character represented by the least significant byte of
+   an <TT>unsigned long</TT> variable. The <I>precision</I> is ignored.<BR>
+   (The format <TT><B>"%.1r"</B></TT> is equal to <TT><B>"%c"</B></TT>, but
+   <TT><B>"%2.1r"</B></TT> is <I>not</I> equal to <TT><B>"%2c"</B></TT>.)<BR>
+   Supported modifiers:
+   <TT><B>-0</B></TT></TD></TR>
+
+  <TR><TD valign="top"><TT><B>s</B></TT></TD>
+   <TD>Write the first <I>precision</I> (default: all) bytes of the string
+   referenced by a <TT>char*</TT> variable.<BR>
+   Supported modifiers:
+   <TT><B>-0</B></TT></TD></TR>
+
+  <TR><TD valign="top"><TT><B>{</B></TT></TD>
+   <TD>The <TT><B>{</B></TT> must be followed by an enumeration of texts,
+   separated by <TT><B>|</B></TT> and terminated by <TT><B>}</B></TT>. If any
+   text contains <TT><B>|</B></TT> or <TT><B>}</B></TT>, escape it with
+   <TT><B>\</B></TT>. Depending on an <TT>unsigned long</TT> variable, the
+   indexed text is printed (first index is 0). If the enumeration is shorter
+   than the value of the <TT>unsigned long</TT> variable, nothing is printed.
+   Field width and precision are ignored. You must not use further format
+   sequences within the enumeration.<BR>
+   Supported modifiers: none</TD></TR>
+   
+  <TR><TD valign="top"><TT><B>[</B></TT></TD>
+   <TD>Not supproted for output.</TD></TR>
+ </TABLE>
+<P>
+ <B>The input conversion characters</B>
+ <TABLE
+  <TR><TD valign="top"><TT><B>feEgG</B></TT></TD>
+   <TD>Read a <TT>double</TT> variable in decimal notation.</TD></TR>
+
+  <TR><TD valign="top"><TT><B>i</B></TT></TD>
+   <TD>Read a <TT>signed long</TT> variable in decimal, octal (leading zero)
+   or hexadecimal (leading <TT><B>0x</B></TT> or <TT><B>0X</B></TT>) notation.
+   </TD></TR>
+
+  <TR><TD valign="top"><TT><B>d</B></TT></TD>
+   <TD>Read a <TT>signed long</TT> variable in decimal notation.</TD></TR>
+
+  <TR><TD valign="top"><TT><B>u</B></TT></TD>
+   <TD>Read an <TT>unsigned long</TT> variable in decimal notation.</TD></TR>
+
+  <TR><TD valign="top"><TT><B>o</B></TT></TD>
+   <TD>Read an <TT>unsigned long</TT> variable in octal notation. A leading
+   <TT><B>0</B></TT> is accepted but not required.</TD></TR>
+
+  <TR><TD valign="top"><TT><B>xX</B></TT></TD>
+   <TD>Read an <TT>unsigned long</TT> variable in hexadecimal notation. A
+   leading <TT><B>0x</B></TT> or <TT><B>0X</B></TT> is accepted but not
+   required.</TD></TR>
+
+  <TR><TD valign="top"><TT><B>b</B></TT></TD>
+   <TD>Read an <TT>unsigned long</TT> variable in binary notation.</TD></TR>
+
+  <TR><TD valign="top"><TT><B>r</B></TT></TD>
+   <TD>Read <I>field width</I> (default: <TT>1</TT>) raw bytes sign extended
+   into a <TT>signed long</TT> variable. The input byte order is assumed to be
+   big endian (most significant byte first) unless the modifier
+   <TT><B>#</B></TT> is present. Leading whitespaces are <I>not</I> skipped.
+   </TD></TR>
+
+  <TR><TD valign="top"><TT><B>D</B></TT></TD>
+   <TD>Read <I>field width</I> (default: <TT>1</TT>) bytes in packed BCD
+   notation into a <TT>long</TT> or <TT>signed long</TT> variable. If the
+   modifier <TT><B>+</B></TT> is present, treat the most significant nibble as
+   the sign (null means +, not null means -). The input byte order
+   is assumed to be big endian (most significant byte first) unless the
+   modifier <TT><B>#</B></TT> is present. Leading whitespaces are <I>not</I>
+   skipped. </TD></TR>
+
+  <TR><TD valign="top"><TT><B>c</B></TT></TD>
+   <TD>Read <I>field width</I> (default 1) non-null characters into a string
+   refecenced by a <TT>char*</TT> variable. Leading whitespaces are <I>not</I>
+   skipped. </TD></TR>
+   
+  <TR><TD valign="top"><TT><B>s</B></TT></TD>
+   <TD>Read a string of non-whitespace characters into a string refecenced by
+   a <TT>char*</TT> variable. Be careful not to read more input than the
+   string can hold. There's no way for the Stream Device to check this, thus
+   always define a maximum input field width (e.g. 39)</TD></TR>
+
+  <TR><TD valign="top"><TT><B>{</B></TT></TD>
+   <TD>The <TT><B>{</B></TT> must be followed by an enumeration of texts,
+   separated by <TT><B>|</B></TT> and terminated by <TT><B>}</B></TT>. If any
+   text contains <TT><B>|</B></TT> or <TT><B>}</B></TT>, escape it with
+   <TT><B>\</B></TT>. Compare the input with each of the texts. Set the
+   <TT>unsigned long</TT> variable to the index of the first match (starting
+   with 0). If no text matches, the input fails. You must not use further
+   format sequences within the enumeration (even not skipped input), but
+   you can use the wildcard <TT><B>\?</B></TT>.</TD></TR>
+   
+  <TR><TD valign="top"><TT><B>[</B></TT></TD>
+   <TD>The <TT><B>[</B></TT> must be followed by a set of caracters
+   (the scanset) terminated with <TT><B>]</B></TT>. Ranges of characters (in
+   the ASCII representation) can be given with the <TT><B>-</B></TT>
+   character. If a <TT><B>^</B></TT> is the first character after the
+   <TT><B>[</B></TT>, the scanset is inverted. To include <TT><B>]</B></TT>
+   to the scanset, it must appear as the first character (after an optional
+   <TT><B>^</B></TT>). To include <TT><B>-</B></TT>, is must appear as the
+   first or last character.<BR>
+   Read all matching input into a string referenced by a <TT>char*</TT>
+   variable. A null-byte never matches. Leading whitespaces are <I>not</I>
+   skipped. Be careful not to read more characters than the string can hold.
+   There's no way for the Stream Device to check this, thus always define a
+   maximum input field width.</TD></TR>
+ </TABLE>
+<P>
+ Remark: The conversions <TT><B>feEgGiduoxXcs[</B></TT> are handled by
+ <TT>sprintf</TT> and <TT>sscanf</TT> internally.
+<HR NOSHADE SIZE="1">
+<A HREF="protocol.html">Back: Protocol File</A><BR>
+<A HREF="recordtypes.html">Next: Record Types</A><BR>
+<P>
+&copy;&nbsp;Aug 26 1999 / Sep 24 2001, Dirk Zimoch,
+<A HREF="mailto: zimoch@delta.uni-dortmund.de">zimoch@delta.uni-dortmund.de</A>
+</BODY>
+</HTML>

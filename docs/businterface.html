@@ -1,0 +1,230 @@
+<!DOCTYPE HTML PUBLIC "-//AdvaSoft//DTD HTML 3.2 extended 961018//EN">
+<HTML>
+<HEAD> 
+<TITLE>Stream Device - Bus Interface</TITLE>
+</HEAD>
+<BODY BGCOLOR="#80D5D5" TEXT="#000000" LINK="#2020ff" VLINK="#101080" ALINK="#c02020">
+<TABLE WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+ <TR>
+  <TD ALIGN=center><H1>DELTA Control System</H1>
+   <H2>Dortmunder Elektronen Testspeicherring Anlage</H2>
+   <B>Universit&auml;t Dortmund</B>
+  <TD ALIGN=right VALIGN=top>
+   <IMG SRC="logodelta.gif" ALT="DELTA" WIDTH="108" HEIGHT="85">
+</TABLE>
+<HR NOSHADE SIZE="1"> </BR>
+<H2>Stream Device - Bus Interface</H2>
+<H3>Version 1.5</H3>
+<HR NOSHADE SIZE="1"> </BR>
+<H3>How to support new fieldbus types/drivers.</H3>
+ Let's assume you want to write an interface for the new bus type <B>Foo</B>.
+ Create a <B><TT>streamFoo.c</TT></B> file that contains interface functions
+ and a structure <TT>streamFoo</TT> of the type <TT>streamBusInterface_t</TT>.
+ This type is defined in <TT>devStream.h</TT>. Put the
+ <B><TT>streamFoo.c</TT></B> file into the <A HREF="src/">
+ <TT><B>streamDevice/src</B></TT></A> directory and add
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ BUSSES += Foo
+</TD></TR></TABLE>
+ to the <A HREF="src/Makefile.Vx"><TT><B>Makefile.Vx</B></TT></A>.
+
+<H4>1. Bus Naming and Finding the Bus Interface</H4>
+<P>
+ When initializing a record, the <A HREF="streamdevice.html">Stream Device
+ Support</A> tries to determine the correct bus interface from the bus name
+ specified in the hardware link. The assignment from the bus name to the bus
+ interface is done using the vxWorks symbol table. Bus name and bus interface
+ name should not be longer than 8 characters. It is nice if there is an
+ existing bus driver for this bus type that supports bus names (see Andrew
+ Johnson's CAN driver). To make a bus available to the Stream Support, create a
+ symbol <TT><I>busName</I>_streamBus</TT> and add it to the symbol table. The
+ content of the symbol is a string with the name of the bus interface.
+<P>
+ <B>Example:</B><BR>
+ We have created a bus named <B>bus1</B> that should be handled by the
+ <B>Foo</B> bus interface. The symbol has the name <TT>bus1_streamBus</TT> and
+ the content <TT>"Foo"</TT>. There are two alternative ways to make the symbol
+ available:<BR>
+<OL>
+ <LI>In the constuctor routine of the bus driver, add code like this:
+<TABLE  BGCOLOR=white WIDTH = 93%><TR><TD><PRE>
+
+ static char *busInterface = "Foo";
+ char streamName [20];
+
+ sprintf (streamName, "%.8s_streamBus", busName);
+ symAdd (sysSymTbl, streamName, (char *)&amp;busInterface, 0, 0);
+</PRE></TD></TR></TABLE>
+ This will not change the functionality of the bus driver. It still can be
+ used without the Stream Support, since this just adds a symbol. If the bus
+ driver does not support busnames, you can try to build a generic name.
+ </LI>
+ <P>
+ <LI>In the startup script, add a line like this:
+<TABLE  BGCOLOR=white WIDTH = 93%><TR><TD><PRE>
+ bus1_streamBus = "Foo"
+</TD></TR></TABLE>
+ This does not require any changes of the bus driver code.
+ </LI>
+</OL>
+
+<H4>2. The Bus Interface Structure</H4>
+<P>
+ This structure contains pointers to the interface functions that must be
+ defined by the bus interface and the number of logical channels on one bus
+ (e.g. 31 on GPIB or 2048 on CAN).
+<TABLE  BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ 
+ typedef struct {
+     CALLBACK callback;   /* don't touch */
+     dbCommon *record;    /* associated EPICS record */
+     protocol_t protocol; /* access to timeouts and terminators */
+     ulong_t channel;     /* number of the output stream for locking */
+     int haveBus;         /* TRUE while record has locked the output */
+     int acceptInput;     /* TRUE while record expects input */
+     void *busPrivate;    /* store your data here */
+ } stream_t;
+
+ typedef struct {
+     long (*initRecord) (stream_t *stream, char *busName, char *param);
+     long (*writePart) (stream_t *stream, char* data, long size);
+     void (*startInput) (stream_t *stream);      /* may be NULL */
+     void (*stopInput) (stream_t *stream);       /* may be NULL */
+     void (*startProtocol) (stream_t *stream);   /* may be NULL */
+     void (*stopProtocol) (stream_t *stream);    /* may be NULL */
+     ulong_t nChannels;        /* number of channels for locking */
+ } streamBusInterface_t;
+</PRE></TD></TR></TABLE>
+ All interface functions are called with a <TT>stream_t*</TT> as the first
+ argument. The <TT>stream_t</TT> is only the public header of a larger
+ private structure of the Stream Device Support. No fields of this structure
+ must be changed outside the <TT>initRecord</TT> function. The
+ <TT>record</TT> field contains a pointer to the EPICS record. I recommend
+ to print <TT>stream->record->name</TT> in every error message of your
+ driver. As long as the record has locked the output stream,
+ <TT>stream->haveBus</TT> is <TT>TRUE</TT>. All other records on the same
+ channel will have this field <TT>FALSE</TT>. While an <TT><B>in</B></TT>
+ command is processed, <TT>stream->acceptInput</TT> is <TT>TRUE</TT>. All
+ functions but <TT>initRecord</TT> will be called in the context of one of
+ the EPICS callback tasks.
+
+<H4>3. Stream Device Functions</H4>
+<P>
+ There are a number of Stream Device functions that can be called by the bus
+ interface. All these functions can be called from interrupt level.
+<TABLE  BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ 
+ void devStreamStartTimer (stream_t *stream, ushort_t timeout, FUNCPTR callback);
+ void devStreamReceive (stream_t *stream, char *data, long size, int endflag);
+ void devStreamWriteTimeout (stream_t *stream);
+ void devStreamReadTimeout (stream_t *stream);
+ void devStreamBusError (stream_t *public);
+ void devStreamWriteFinished (stream_t *public);
+</PRE></TD></TR></TABLE>
+ <B><TT>devStreamStartTimer ()</TT></B></BR>
+ If the bus driver does not support timeouts, this function can be used to
+ start a timer. It uses the watchdog of the Stream Device. The timeout is
+ given in milliseconds. The <TT>callback</TT> function will be called with
+ the argument <TT>stream</TT>, unless one of the above <TT>devStreamXXX</TT>
+ functions is called before the timer runs out.
+<P>
+ <B><TT>devStreamReceive ()</TT></B><BR>
+ This function should be called whenever there is some input while the
+ <TT>stream->acceptInput</TT> field is <TT>TRUE</TT>. It copies <TT>size</TT>
+ bytes of <TT>data</TT> and searches for the terminator. If the bus driver can
+ detect an 'end of message', it may set the <TT>endflag</TT> to a non-zero
+ value as a hint. Call this function again, if there is more input. The bus
+ interface is notified about changes of the <TT>stream->acceptInput</TT> field
+ by calls to the interface functions <TT>startInput</TT> and
+ <TT>stopInput</TT>.
+<P>
+ <B><TT>devStreamWriteTimeout ()</TT></B></BR>
+ Call this function if the bus driver gets a timeout while trying to write
+ to the bus. The field <TT>steam->protocol.writeTimeout</TT> contains the
+ maximum time to wait in milliseconds. This will set the severity to
+ <TT>INVALID</TT> and the status to <TT>WRITE</TT>.
+<P>
+ <B><TT>devStreamReadTimeout ()</TT></B></BR>
+ Call this function if the hardware device unexpectedly stops sending input.
+ The field <TT>steam->protocol.readTimeout</TT> contains the maximum time to
+ wait in milliseconds. This will set the severity to <TT>INVALID</TT> and the
+ status to <TT>READ</TT> unless a read timeout is a valid end condition (no
+ input terminator defined; <TT>steam->protocol.inTerminator[0] == 0</TT>).
+<P>
+ <B><TT>devStreamBusError ()</TT></B></BR>
+ If there is something wrong with the bus rather than with the connected
+ hardware, you may call this function. This will set the severity to
+ <TT>INVALID</TT> and the status to <TT>COMM</TT>.
+<P>
+ <B><TT>devStreamWriteFinished ()</TT></B></BR>
+ Call this function after the bus driver has finished writing data to the bus.
+ If not all output could be written in one pass, the next part will be
+ transmitted to the bus interface now. If output is complete, the next i/o
+ command will be started.
+ 
+<H4>4. Bus Interface Functions</H4>
+<P>
+ <B><TT>initRecord ()</TT></B><BR>
+ This function is called by <TT>devStreamInitRecord</TT> after all other
+ initialization has been done. The <TT>devStreamInitRecord</TT> function will
+ return its result, thus it must return <TT>OK</TT> if everything is alright.
+ The argument <TT>busName</TT> is the bus name taken from the hardware link,
+ <TT>param</TT> is the remainder of the link after the bus name. Its format
+ depends on the bus interface. It should contain all bus specific information,
+ especially channel number (GPIB address, CAN IDs, ...) and parameters
+ (SRQ supported?, bytes per CAN frame, ...). It is the main task of
+ <TT>initRecord</TT> to find the bus and to parse the <TT>param</TT> string.
+ It it helpful if the bus driver supports bus names. If not,
+ <TT>initRecord</TT> must find its own way to determine the bus from a name
+ (generic names should work). It may allocate a private structure to hold its
+ information. A pointer to this structure can be stored in
+ <TT>stream->busPrivate</TT>. To enable the Stream Device to lock the correct
+ output channel, put its number to <TT>stream->channel</TT>. This number must
+ be between 0 (inclusive) and the <TT>nChannels</TT> field of the
+ <TT>streamBusInterface_t</TT> structure (exclusive).
+<P>
+ <B><TT>writePart ()</TT></B><BR>
+ This function should tell the bus driver to write the first part of
+ <TT>data</TT>, which is an array of <TT>size</TT> bytes. There may be
+ null-bytes among the data, they do not terminate <TT>data</TT>! The function
+ must not block, thus do not wait until the bus driver has really written all
+ bytes to the bus. Instead, call <TT>devStreamWriteFinished</TT> when ready.
+ If the bus driver cannot take all output at once without blocking,
+ <TT>writePart</TT> will be called again later with the remaining bytes. Thus,
+ return the number of bytes, the bus driver has accepted. Return <TT>ERROR</TT>
+ if the bus driver fails accepting the write request. If the driver cannot
+ write for <TT>stream->protocol.writeTimeout</TT> milliseconds, call
+ <TT>devStreamWriteTimeout</TT>.  If the bus driver does not support timeouts,
+ you may use the <TT>devStreamStartTimer</TT> function:
+<TABLE  BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ devStreamStartTimer (stream, stream->protocol.writeTimeout,
+     (FUNCPTR)devStreamWriteTimeout);
+</TD></TR></TABLE> 
+ If the bus driver detects an error other than timeout, you should call
+ <TT>devStreamBusError</TT>.
+<P>
+ <B><TT>startInput () / stopInput ()</TT></B><BR>
+ To inform the bus interface that the Stream Device Support expects input,
+ it sets the <TT>stream->acceptInput</TT> flag and calls <TT>startInput</TT>.
+ If the Stream Device does not accept input any more (the end of the input
+ has been detected or an error accured), it resets
+ <TT>stream->acceptInput</TT> and calls <TT>stopInput</TT>. Both function
+ entries can be <TT>NULL</TT> if the bus interface does not need to be
+ informed. If <TT>devStreamReceive</TT> is not called at least once within
+ <TT>stream->replyTimeout</TT> milliseconds after <TT>startInput</TT>, the
+ severity is set to <TT>INVALID</TT> and the status to <TT>TIMEOUT</TT>.
+<P>
+ <B><TT>startProtocol ()  /  stopProtocol ()</TT></B><BR>
+ These two functions are called before the first and after the last i/o
+ command, respectively. The <TT>stopProtocol</TT> function will also be
+ called if i/o is aborted due to an error. If the bus interface does not
+ need to be informed, the function entries can be <TT>NULL</TT>.
+  
+<HR NOSHADE SIZE="1">
+<A HREF="recordinterface.html">Back: Record Interface</A><BR>
+<A HREF="can.html">Next: CAN Interface</A>
+<P>
+&copy;&nbsp;Sep 16 1999 / Sep 25 2001, Dirk Zimoch,
+<A HREF="mailto: zimoch@delta.uni-dortmund.de">zimoch@delta.uni-dortmund.de</A>
+</BODY>
+</HTML>

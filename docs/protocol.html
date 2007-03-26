@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//AdvaSoft//DTD HTML 3.2 extended 961018//EN">
+<HTML>
+<HEAD> 
+<TITLE>Stream Device - Protocol File</TITLE>
+</HEAD>
+<BODY BGCOLOR="#80D5D5" TEXT="#000000" LINK="#2020ff" VLINK="#101080" ALINK="#c02020">
+<TABLE WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+ <TR>
+  <TD ALIGN=center><H1>DELTA Control System</H1>
+   <H2>Dortmunder Elektronen Testspeicherring Anlage</H2>
+   <B>Universit&auml;t Dortmund</B>
+  <TD ALIGN=right VALIGN=top>
+   <IMG SRC="logodelta.gif" ALT="DELTA" WIDTH="108" HEIGHT="85">
+</TABLE>
+<HR NOSHADE SIZE="1"> </BR>
+<H2>Stream Device - Protocol File</H2>
+<H3>Version 1.5</H3>
+<HR NOSHADE SIZE="1"> </BR>
+
+<P>
+ The protocol defines the hardware dependent format of input and output
+ streams. Every type of hardware device has its own set of protocols, one for
+ every possible action of the hardware. All protocols for one device type can
+ be described in one protocol file. All protocol files reside in one
+ directory, which is best NFS mounted by the IOC. Set the variable
+ <TT><B>STREAM_PROTOCOL_DIR</B></TT> to the directory path in the startup
+ script of the IOC.<BR>
+ For example, if the directory is mounted as
+ <TT>/ioc/share/streamProtocols</TT>, add
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD NOWRAP><TT>
+ &nbsp;STREAM_PROTOCOL_DIR = "/ioc/share/streamProtocols"
+</TT></TD></TR></TABLE>
+ in the startup script before the <TT><B>iocInit</B></TT> command.
+
+<P>
+ To build a protocol file, first choose a file name from that you can infer
+ the device type (e.g. the manufacturer's device identifier). Then choose
+ protocol names for every action of the device. File name and protocol name
+ will be part of the <TT>INP</TT> or <TT>OUT</TT> link of the record.<BR>
+ <B>Example protocol names:</B> <TT>reset</TT>, <TT>freq.out</TT>,
+ <TT>read-temp</TT>
+<P>
+ Finally define the protocol body, i.e. what to send to the hardware and
+ what to receive. The protocol body is a list of commands framed with braces
+ <TT>{}</TT> and follows the protocol name. There are four commands supported
+ in the context of the protocol body:<BR>
+ <TT><B>in </B></TT><I>string</I><TT><B>;</B></TT>
+ <TT><B>out </B></TT><I>string</I><TT><B>;</B></TT>
+ <TT><B>wait </B></TT><I>milliseconds</I><TT><B>;</B></TT>
+ <TT><B>event </B></TT><I>milliseconds</I><TT><B>;</B></TT>
+<P>
+ Furthermore, it is possible to set <A HREF="parameters.html">parameter
+ variables</A> that affect <A HREF="processing.html">protocol processing</A>.
+ Parameters can be set locally (inside a protocol body) or globally (before
+ the protocols).
+<P>
+ <B>Example protocol file:</B>
+ <TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ 
+ # Any text starting with the hash character
+ # is comment until end of line
+ terminator = CR LF;
+ replytimeout = 1000; # milliseconds
+ 
+ reset     { out "*RST"; wait 5000; out "disp:grid on"; }
+ freq.out  { out "frequency %f Hz"; }
+ read-temp { replytimeout = 5000; out "temp?"; in "%f C"; }</PRE>
+</TD></TR></TABLE>
+<P>
+ Parameter assignments and commands must be terminated with a semicolon.
+ Parameter names and commands are <I>not</I> case sensitive, but the
+ protocol names are. Globally defined parameters affect all protocols
+ <I>after</I> the definition. Locally defined parameters affect all
+ commands in one protocol, regardless of the order of parameters and
+ commands.
+<P>
+ Whitespaces may be added before or after any word, number, string or
+ special character for better readability, but are not required.
+ Whitespaces are unquoted blanks, tabs, linefeeds, returns, formfeeds
+ and comments. A comment is any text starting with an unquoted
+ <TT><B>#</B></TT> until the end of the line. Special characters are
+ <TT><B>={};"</B></TT>. Protocol names must not contain any special
+ character, <TT><B>#</B></TT> or whitespace.
+<P>
+ Strings are sequences of quoted text or unquoted bytes written as decimal,
+ octal (leading <TT><B>0</B></TT>), or hexadecimal (leading
+ <TT><B>0x</B></TT>) numbers, or the constants <TT><B>CR</B></TT> (=13) and
+ <TT><B>LF</B></TT> (=10). The elements of a string can be seperated by
+ comma or whitespace. Non printable bytes (including null-bytes) can be
+ written as unquoted numbers (range 0 to 255) or as quoted escape sequences.
+ The constant <TT><B>SKIP</B></TT> and the escape sequence
+ <TT><B>"\?"</B></TT> are wildcard bytes for input strings only.
+<P>
+ <B>Example:</B> a string of ten linefeed characters
+ <TABLE BGCOLOR=white WIDTH = 100%><TR><TD NOWRAP><TT>
+ "\n", LF lf, 0xA,10 "\x0a\xA" "\10\012"012
+ </TT></TD></TR></TABLE>
+<P>
+ In quoted text, the characters <TT><B>%"\</B></TT> are special. If one
+ of these characters should be used literally, escape it with
+ <TT><B>\</B></TT>. Thus, <TT><B>"\%\"\\"</B></TT> is a string of three
+ bytes. An escape sequence that has no special meaning stands for the
+ escaped character itself. The following example shows escape sequences and
+ alternatives:
+ <TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ 
+ "\n"   LF    # linefeed
+ "\r"   CR    # carriage return
+ "\?"   SKIP  # wildcard (input only)
+ "\xab" 0xab  # hex number
+ "\077" 077   # octal number
+ "\53"  53    # decimal number
+ "\""   34    # quote character
+ "\%"   37    # percent character
+ "\\"   0x5c  # backslash character
+ "\F"   "F"   # any other escape sequence</PRE>
+ </TD></TR></TABLE>
+<P>
+ The percent character in quoted text indicates a <A HREF="format.html">format
+ descriprion</A>, very similar to the C functions <TT>printf</TT> and
+ <TT>scanf</TT>. What variable to read or to write depends on the
+ <A HREF="recordtypes.html">record type</A> and the format. In general, you can
+ assume to access the <TT>VAL</TT>, <TT>RVAL</TT> or <TT>RBV</TT> field of the
+ record. Format descriptions are only allowed in
+ <TT><B>in</B></TT> or <TT><B>out</B></TT> commands, not in
+ <A HREF="parameters.html">terminators</A>.
+
+<HR NOSHADE SIZE="1">
+<A HREF="processing.html">Back: Record Processing</A><BR>
+<A HREF="format.html">Next: Format Descriptions</A><BR>
+<P>
+&copy;&nbsp;Sept 29 1999 / Sep 24 2001, Dirk Zimoch,
+<A HREF="mailto: zimoch@delta.uni-dortmund.de">zimoch@delta.uni-dortmund.de</A>
+</BODY>
+</HTML>

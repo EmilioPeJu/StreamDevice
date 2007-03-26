@@ -1,0 +1,14 @@
+# RELEASE - Location of external products
+#
+# (Architecture dependent declarations should go into RELEASE.<arch>)
+#
+# Note: This file will be scanned to automatically generate
+#       include path definitions etc.
+#       The order of the following declarations will be retained
+#       within those definitions.
+#
+# Add your declarations here
+
+TEMPLATE_TOP=/home/epics/R3.13.9/base/templates/makeBaseApp/top
+#SHARE=
+EPICS_BASE=/home/epics/R3.13.9/base

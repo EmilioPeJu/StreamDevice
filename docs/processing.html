@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//AdvaSoft//DTD HTML 3.2 extended 961018//EN">
+<HTML>
+<HEAD> 
+<TITLE>Stream Device - Record Processing</TITLE>
+</HEAD>
+<BODY BGCOLOR="#80D5D5" TEXT="#000000" LINK="#2020ff" VLINK="#101080" ALINK="#c02020">
+<TABLE WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+ <TR>
+  <TD ALIGN=center><H1>DELTA Control System</H1>
+   <H2>Dortmunder Elektronen Testspeicherring Anlage</H2>
+   <B>Universit&auml;t Dortmund</B>
+  <TD ALIGN=right VALIGN=top>
+   <IMG SRC="logodelta.gif" ALT="DELTA" WIDTH="108" HEIGHT="85">
+</TABLE>
+<HR NOSHADE SIZE="1"> </BR>
+<H2>Stream Device - Record Processing </H2>
+<H3>Version 1.5</H3>
+<HR NOSHADE SIZE="1"> </BR>
+
+ The <A HREF="streamdevice.html">Stream Device</A> is an asyncronous device
+ support. Thus, i/o processing never delays the scan tasks. When a record is
+ processed, the read or write function returns at once before i/o starts,
+ leaving the <TT>PACT</TT> field set to <TT>TRUE</TT>. A side effect of this
+ behaviour is, that <TT>PP</TT> input links to this record always get old
+ values. So don't use them unless you really know what you're doing.
+<P>
+ The actual i/o happens in the context of one of the three callback
+ tasks, depending on the <TT>PRIO</TT> field. It is controlled by the
+ <A HREF="protocol.html">stream protocol</A>. After i/o finishes, the record
+ is processed again, this time leaving the <TT>PACT</TT> field set to
+ <TT>FALSE</TT>. If i/o fails for any reason, the protocol terminates at once
+ and the alarm severity field <TT>SEVR</TT> is set to <TT>INVALID</TT>. The
+ <TT>STAT</TT> field contains information about the type of failure. At last,
+ output and forward links of the record are processed.
+ 
+<H3>Commands</H3>
+ Depening on the protocol, the device support performs input or output, waits
+ a number of milliseconds or waits for an event. The four commands
+ <TT><B>in</B></TT>, <TT><B>out</B></TT>, <TT><B>wait</B></TT>, and
+ <TT><B>event</B></TT> can appear in any order. Input and output strings can
+ contain <A HREF="format.html">format descriptions</A>, very similar to the
+ printf and scanf syntax in C. The first <TT><B>out</B></TT> command in a
+ protocol locks the output stream to prevent mixing of i/o from several records
+ to the same device. This does not necessarily lock the entire bus if the bus
+ architecture supports logical channels like <A HREF="can.html">CAN</A> and
+ <A HREF="gpib.html">GPIB</A> do. The stream is released when the protocol
+ terminates.
+
+<H4>Output</H4>
+ If the output stream is not yet locked by the record, the <TT><B>out</B></TT>
+ command locks it. If another record has locked the stream and does not
+ release it within <A HREF="parameters.html">lockTimeout</A> milliseconds,
+ the command fails and <TT>STAT</TT> is set to <TT>TIMEOUT</TT>.
+<P>
+ Any <A HREF="format.html">format description</A> in the argument string is
+ replaced by the formatted content of one of the fields of the record before
+ writing the string to the output stream. It depends on the
+ <A HREF="recordtypes.html">record type</A> and on the format what field is
+ used. Not all formats are supported by all record types. An unsupported format
+ makes the <TT><B>out</B></TT> command fail and <TT>STAT</TT> is set to
+ <TT>SOFT</TT>. Note, that two successive <TT><B>out</B></TT> commands do not
+ simply write the concatenated output. Each <TT><B>out</B></TT> command sends
+ the <A HREF="parameters.html">terminator</A> and flushes the output stream.
+ If the bus driver cannot write to the bus, the command fails and
+ <TT>STAT</TT> is set to <TT>WRITE</TT>.
+
+<H4>Input</H4>
+ The <TT><B>in</B></TT> command reads the input stream until the
+ <A HREF="parameters.html">terminator</A> is found or the bus driver signals
+ an "end of message". If no terminator is defined, a timeout is a valid end
+ condition, too. Otherwise, the <TT><B>in</B></TT> command fails on a timeout
+ and sets <TT>STAT</TT> to <TT>READ</TT>. If there is no input at all within
+ <A HREF="parameters.html">replyTimeout</A> milliseconds, i.e. the hardware
+ does not answer, <TT>STAT</TT> is set to <TT>TIMEOUT</TT>.
+<P>
+ After the terminator is removed from the input string, the <TT><B>in</B></TT>
+ command matches it against its argument. If there is a mismatch, the command
+ fails and <TT>STAT</TT> is set to <TT>CALC</TT>. A
+ <A HREF="format.html">format description</A> consumes input bytes as long as
+ they match the format. If no byte matches, the <TT><B>in</B></TT> command
+ fails. Unless the format description contains the skip modifier
+ <TT><B>*</B></TT>, the parsed value will be assigned to one of the fields of
+ the record, depending on the <A HREF="recordtypes.html">record type</A> and
+ the format. Not all formats are supported by all record types (unless they
+ are skipped). An unsupported format makes the <TT><B>in</B></TT> command fail
+ and sets <TT>STAT</TT> to <TT>SOFT</TT>. If <TT><B>SKIP</B></TT> or
+ <TT><B>"\?"</B></TT> appears in the argument string, it matches any single
+ input byte. All other text must match exactly. If all expected input is found
+ but there are still bytes left, the <A HREF="parameters.html">parameter</A>
+ <TT><B>ExtraInput</B></TT> determines if they are ignored or if this is
+ treated as a mismatch.
+
+<H4>Wait</H4>
+ The <TT><B>wait</B></TT> command just waits a given number of milliseconds.
+ This is useful if the hardware needs some time before it can react on the
+ next command.
+
+<H4>Event</H4>
+ The <TT><B>event</B></TT> command waits for events from the hardware. It
+ depends on the bus type if and how events are implemented. For example,
+ GPIB has the service request line (SRQ) and CAN has remote request frames
+ (RTR). A timeout parameter in milliseconds is optional. If there is no event
+ within the timeout, the command fails and <TT>STAT</TT> is set to
+ <TT>TIMEOUT</TT>. If no timeout is given, the command unlocks the output
+ stream if it was locked and waits forever.
+ 
+<H3>Asyncronous processing</H3>
+ If the <TT>SCAN</TT> field of the record is <TT>I/O Intr</TT>, the behaviour
+ is slightly different. As soon as the <TT>SCAN</TT> field becomes
+ <TT>I/O Intr</TT>, the protocol is started. If the first <TT><B>in</B></TT>
+ command is not preceded by an <TT><B>event</B></TT> command, it unlocks the
+ stream if it was locked and waits forever. If this <TT><B>in</B></TT> command
+ gets input that does not match the expected string, the input is ignored and
+ the <TT><B>in</B></TT> command starts over. The next <TT><B>out</B></TT>
+ command locks the output stream again. The first <TT><B>out</B></TT> command
+ that contais a <A HREF="format.html">format description</A> starts record
+ processing to obtain the latest value before creating the output string. At
+ the end of the protocol or in case of an error, record processing finishes
+ normally and the protocol is started again. When the <TT>SCAN</TT> field
+ ceases beeing <TT>I/O Intr</TT>, the blocking <TT><B>in</B></TT> command
+ fails with a timeout.
+
+<H3>Miscellaneous errors</H3>
+ In a protocol, there may be any number of format descriptions in
+ <TT><B>out</B></TT> commands, as long as the format is supported by the
+ record type. Input records must have exactly one not skipped format
+ description in an <TT><B>in</B></TT> command. Output records may have at
+ most one, if supported by the record type. If an error in the protocol is
+ detected at run time, i/o fails and <TT>STAT</TT> is set to <TT>SOFT</TT>.
+ This includes a wrong number of input formats, unterminated
+ <TT><B>%{</B></TT> formats, skipping in <TT><B>out</B></TT> commands,
+ precision fields in input formats, and unexpected problems with the record
+ type depending parts of the device support. Errors in the protocol file that
+ can be detected at boot time are shown on the IOC's terminal. If
+ initialization fails for this or any other reson, the record stays undefined
+ forever with <TT>STAT</TT> set to <TT>UDF</TT>. If the bus driver detects
+ problems with the bus hardware, <TT>STAT</TT> might be set to <TT>COMM</TT>.
+ Any buffer overflow in an <TT><B>in</B></TT> or <TT><B>out</B></TT> command
+ sets <TT>STAT</TT> to <TT>HW_LIMIT</TT>.
+ 
+<HR NOSHADE SIZE="1">
+<A HREF="streamdevice.html">Back: Stream Device</A><BR>
+<A HREF="protocol.html">Next: Protocol File</A>
+<P>
+&copy;&nbsp;Sep 29 1999 / Sep 24 2001, Dirk Zimoch,
+<A HREF="mailto: zimoch@delta.uni-dortmund.de">zimoch@delta.uni-dortmund.de</A></BODY>
+</HTML>

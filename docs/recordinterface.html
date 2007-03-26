@@ -1,0 +1,242 @@
+<!DOCTYPE HTML PUBLIC "-//AdvaSoft//DTD HTML 3.2 extended 961018//EN">
+<HTML>
+<HEAD> 
+<TITLE>Stream Device - Record Interface</TITLE>
+</HEAD>
+<BODY BGCOLOR="#80D5D5" TEXT="#000000" LINK="#2020ff" VLINK="#101080" ALINK="#c02020">
+<TABLE WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+ <TR>
+  <TD ALIGN=center><H1>DELTA Control System</H1>
+   <H2>Dortmunder Elektronen Testspeicherring Anlage</H2>
+   <B>Universit&auml;t Dortmund</B>
+  <TD ALIGN=right VALIGN=top>
+   <IMG SRC="logodelta.gif" ALT="DELTA" WIDTH="108" HEIGHT="85">
+</TABLE>
+<HR NOSHADE SIZE="1"> </BR>
+<H2>Stream Device - Record Interface</H2>
+<H3>Version 1.5</H3>
+<HR NOSHADE SIZE="1"> </BR>
+<H3>How to support new record types</H3>
+<P>
+ Let's assume you have a new <A HREF="recordtypes.html">recortype</A>
+ <TT>xyzoutRecord</TT> which is an output record. Create a
+ <TT><B>devXyzoutStream.c</B></TT> file that contains the device support
+ structure <TT>devXyzoutStream</TT> and the functions:
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ static long readData (dbCommon *record, format_t *format);
+ static long writeData (dbCommon *record, format_t *format);
+ static long initRecord (dbCommon *record);
+</TD></TR></TABLE>
+ You need not use exactly these function names, but I would recommend to do
+ so. If you don't want to use <TT>static</TT> functions, you should use names
+ like <TT>devXyzoutStreamReadData</TT>, etc. Include
+ <TT><B>devStream.h</B></TT> and <TT><B>xyzoutRecord.h</B></TT>. Put the
+ <TT><B>devXyzoutStream.c</B></TT> file into the
+ <A HREF="src/"><TT><B>streamDevice/src</B></TT></A> directory and add
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ RECORDS += Xyzout
+</TD></TR></TABLE>
+ to the <A HREF="src/Makefile.Vx"><TT><B>Makefile.Vx</B></TT></A>.
+<P>
+ <B><TT>readData ()</TT></B><BR>
+ This function is called whenever an <TT><B>in</B></TT> command encounters a
+ <A HREF="format.html">format description</A>. Depending on the requested
+ data type in <TT>format->type</TT> (or on the conversion character in
+ <TT>format->conversion</TT> if you like), this function should call
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ devStreamScanf (record, format, &amp;variable);
+</TD></TR></TABLE>
+ with the address of a variable where to store the received value. This
+ variable can be one of the fields of the record or a temporary variable from
+ that you calculate a record field.
+<P>
+ If the requested data type is <TT>DBF_DOUBLE</TT> (i.e. the conversion
+ character is one of <TT><B>fgGeE</B></TT>), the variable must be a
+ <TT>double</TT>. If the type is <TT>DBF_LONG</TT> (conversion is one of
+ <TT><B>idouxXbrD</B></TT>), the variable must be a <TT>long</TT> or
+ <TT>unsigned long</TT>. If the type is <TT>DBF_STRING</TT> (conversions
+ <TT><B>sc[</B></TT>) the variable must be a <TT>char[]</TT>, big enough to
+ hold any received string (this is not fail-save!). If the type is
+ <TT>DBF_ENUM</TT> (conversion<TT><B>{</B></TT>), the variable must be an
+ <TT>unsigned long</TT> and will contain the index of the enumeration.
+ Since the list of conversion characters might be extended in the future, I
+ recommend to use <TT>format->type</TT> rather than <TT>format->conversion</TT>.
+<P>
+ The function should return <TT>ERROR</TT> if <TT>devStreamScanf</TT> fails
+ (returns <TT>ERROR</TT>), if the received value is out of range, or if the
+ record type does not support the conversion. It should return <TT>OK</TT> if
+ the record support has to call the conversion routine and
+ <TT>DO_NOT_CONVERT</TT> if not.
+<P>
+ <B>Example:</B><BR>
+ The <TT>xyzoutRecord</TT> is an analog output record, but has an <TT>RBV</TT>
+ field to hold a raw (<TT>short</TT>) readback value. We want to allow reading
+ back the <TT>VAL</TT> field (<TT>double</TT>) from the hardware. We do not
+ support strings or enums
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ 
+ static long readData (dbCommon *record, format_t *format)
+ {
+   xyzoutRecord *xyzo = (xyzoutRecord *) record;
+   long rbv;
+
+   if (format->type == DBF_DOUBLE)
+   {
+     if (devStreamScanf (record, format, &amp;xyzo->val)) return ERROR;
+     return DO_NOT_CONVERT;
+   }
+   if (format->type == DBF_LONG)
+   {
+     devStreamScanf (record, format, &amp;rbv)) return ERROR;
+     if (rbv &gt; 0x7fff || rbv &lt; -0x8000) return ERROR;
+     xyzo->rbv = (short) rbv;
+     return OK;
+   }
+   return ERROR;
+ }
+</PRE></TD></TR></TABLE>
+<P>
+ <B><TT>writeData ()</TT></B><BR>
+ This function is called whenever an <TT><B>out</B></TT> command encounters a
+ <A HREF="format.html">format description</A>. Depending on the requested
+ data type in <TT>format->type</TT> (or on the conversion character in
+ <TT>format->conversion</TT>), this function should call
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ devStreamPrintf (record, format, value);
+</TD></TR></TABLE>
+ with the value to write to the stream.
+<P>
+ If the requested data type is <TT>DBF_DOUBLE</TT> (conversion character is
+ one of <TT><B>fgGeE</B></TT>), the value must be a <TT>double</TT>. If the
+ type is <TT>DBF_LONG</TT> (conversion is one of <TT><B>idouxXbrD</B></TT>),
+ the value must be a <TT>long</TT> or <TT>unsigned long</TT>. If the type is
+ <TT>DBF_STRING</TT> (conversion <TT><B>s</B></TT>), the value must be a
+ <TT>char*</TT>. If the type is <TT>DBF_ENUM</TT> (conversion
+ <TT><B>{</B></TT>), the value must be an <TT>unsigned long</TT> that
+ represents the index of the enumeration.
+<P>
+ The function should return <TT>ERROR</TT> if <TT>devStreamPrintf</TT> fails
+ (returns <TT>ERROR</TT>) or if the record type does not support the
+ conversion. It should return <TT>OK</TT> on success.
+<P>
+ <B>Example:</B><BR>
+ The <TT>xyzoutRecord</TT> has a <TT>double</TT> <TT>VAL</TT> field and a
+ <TT>RVAL</TT> field that contains the (<TT>short</TT>) raw value.
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ 
+ static long writeData (dbCommon *record, format_t *format)
+ {
+   xyzoutRecord *xyzo = (xyzoutRecord *) record;
+
+   if (format->type == DBF_DOUBLE)
+   {
+     return devStreamPrintf (record, format, xyzo->val);
+   }
+   if (format->type == DBF_LONG)
+   {
+     devStreamPrintf (record, format, (long)xyzo->rval);
+   }
+   return ERROR;
+ }
+</PRE></TD></TR></TABLE>
+<P>
+ <B><TT>initRecord ()</TT></B><BR>
+ This is the init_record function of the device support structure. It
+ should call
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ devStreamInitRecord (record, &amp;link, readData, writeData);
+</TD></TR></TABLE>
+ where <TT>link</TT> is the hardware link of the record. Any of the two
+ function addresses <TT>readData</TT> or <TT>writeData</TT> can be replaced by
+ <TT>NULL</TT> if no conversion at all is supported. I have supported 
+ <TT>readData</TT> functions for output records to read back the desired
+ value, but no <TT>writeData</TT> functions for input records. But you can
+ handle this as you like for your own records.
+<P>
+ If the record is an input record, the function should return the result of
+ <TT>devStreamInitRecord</TT>. If the record is an output record and the
+ result of <TT>devStreamInitRecord</TT> is <TT>OK</TT>, it should return
+ <TT>DO_NOT_CONVERT</TT> instead.
+<P>
+ <B>Example:</B><BR>
+ The hardware link of the <TT>xyzoutRecord</TT> is the <TT>OUT</TT> field.
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ 
+ static long initRecord (dbCommon *record)
+ {
+   xyzoutRecord *xyzo = (xyzoutRecord *) record;
+   long status;
+
+   status = devStreamInitRecord (record,
+     &amp;xyzo-&gt;out, readData, writeData)
+   return status ? status : DO_NOT_CONVERT;
+ }
+</PRE></TD></TR></TABLE>
+<P>
+ <B><TT>struct dev<I>Recordtype</I>Stream</TT></B><BR>
+ This structure is the interface to the EPICS device support. It must not be
+ <TT>static</TT> and should have a name similar to the example
+ <TT>devXyzoutStream</TT>. To tell EPICS the name add the following line to
+ the file <A HREF="src/stream.dbd"><TT><B>stream.dbd</B></TT></A>:
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ device (xyzout, INST_IO, devXyzoutStream, "stream")
+</TD></TR></TABLE>
+ The device support structure must contain at least five function
+ addresses. Refer to the record description for additional functions. You will
+ eventually have to write them yourself. The five default functions are:
+ <TT>report</TT>, <TT>init</TT>, <TT>init_record</TT>, <TT>get_ioint_info</TT>
+ and <TT>read</TT> or <TT>write</TT>. The first element of the structure is
+ a <TT>long</TT> that contains the number of following function addresses.
+<P>
+ The Stream Device Support makes functions available that should be used in
+ this structure: <TT>devStreamReport</TT>, <TT>devStreamInit</TT>,
+ <TT>devStreamGetIointInfo</TT>, <TT>devStreamRead</TT> and
+ <TT>devStreamWrite</TT>. You should use <TT>devStreamRead</TT> for input
+ records and <TT>devStreamWrite</TT> for output records.
+<P>
+ <B>Example:</B><BR>
+ The <TT>xyzoutRecord</TT> only needs the five standard functions.
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ 
+ struct {
+     long number;
+     DEVSUPFUN report;
+     DEVSUPFUN init;
+     DEVSUPFUN init_record;
+     DEVSUPFUN get_ioint_info;
+     DEVSUPFUN write;
+ } devXyzStream = {
+     5,
+     devStreamReport,
+     devStreamInit,
+     initRecord,
+     devStreamGetIointInfo,
+     devStreamWrite
+ };
+</PRE></TD></TR></TABLE>
+
+<H3>How to support non scalar (waveform, multi value) record types</H3>
+<P>
+ The device support calls <TT>readData</TT> and <TT>writeData</TT> as usual. 
+ Inside <TT>readData</TT>, you must call
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ devStreamScanSep (record);
+</TD></TR></TABLE>
+ before calling <TT>devStreamScanf</TT> the 2<SUP><FONT SIZE-2>nd</FONT></SUP>
+ to n<SUP><FONT SIZE-2>th</FONT></SUP> time. This function will return
+ <TT>OK</TT> if a separator has been found and <TT>ERROR</TT> if there is no
+ match or the end of the input has been reached.
+ In <TT>writeData</TT> call
+<TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ devStreamPrintSep (record);
+</TD></TR></TABLE>
+ between calls of <TT>devStreamPrintf</TT>. It will fail only if the output
+ buffer is full.
+<HR NOSHADE SIZE="1">
+<A HREF="parameters.html">Back: Protocol Parameters</A><BR>
+<A HREF="businterface.html">Next: Bus Interface</A>
+<P>
+&copy;&nbsp;Oct 6 1999 / Sep 24 2001, Dirk Zimoch,
+<A HREF="mailto: zimoch@delta.uni-dortmund.de">zimoch@delta.uni-dortmund.de</A>
+</BODY>
+</HTML>

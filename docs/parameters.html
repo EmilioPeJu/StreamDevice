@@ -1,0 +1,138 @@
+<!DOCTYPE HTML PUBLIC "-//AdvaSoft//DTD HTML 3.2 extended 961018//EN">
+<HTML>
+<HEAD> 
+<TITLE>Stream Device - Protocol Parameters</TITLE>
+</HEAD>
+<BODY BGCOLOR="#80D5D5" TEXT="#000000" LINK="#2020ff" VLINK="#101080" ALINK="#c02020">
+<TABLE WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+ <TR>
+  <TD ALIGN=center><H1>DELTA Control System</H1>
+   <H2>Dortmunder Elektronen Testspeicherring Anlage</H2>
+   <B>Universit&auml;t Dortmund</B>
+  <TD ALIGN=right VALIGN=top>
+   <IMG SRC="logodelta.gif" ALT="DELTA" WIDTH="108" HEIGHT="85">
+</TABLE>
+<HR NOSHADE SIZE="1"> </BR>
+<H2>Stream Device - Protocol Parameters</H2>
+<H3>Version 1.5</H3>
+<HR NOSHADE SIZE="1"> </BR>
+
+<P>
+ The behaviour of the <A HREF="streamdevice.html">Stream Device</A> commands
+ <TT><B>in</B></TT> and <TT><B>out</B></TT> is affected by several parameters.
+ These can be set locally (inside a protocol body) or globally (before the
+ protocol bodies) in the <A HREF="protocol.html">protocol file</A>. Globally
+ defined parameters affect all protocols after the definition. Locally defined
+ parameters affect all commands in one protocol, regardless of the order of
+ parameters and commands.
+<P>
+ The syntax is:<BR>
+ <TABLE BGCOLOR=white WIDTH = 100%><TR><TD NOWRAP><TT>
+ &nbsp;<I>parameter</I>=<I>value</I>;
+ </TT></TD></TR></TABLE>
+ Unquoded text is <I>not</I> case sensitive. Any number of whitespaces may be
+ added before and after <I>parameter</I> and <I>value</I>;
+<P>
+ The following list shows all possible parameter variables and their default
+ values.
+ <TABLE BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ 
+ BufferSize = 100;    # maximal in/out message length in bytes
+ InTerminator = "";   # end of input detection
+ OutTerminator = "";  # is appended to any output
+ Terminator = "";     # sets both terminators
+ Separator = "";      # field separator for array i/o
+ LockTimeout = 5000;  # milliseconds to wait for bus access
+ ReplyTimeout = 1000; # milliseconds to wait for reply
+ ReadTimeout = 100;   # milliseconds to wait for data input
+ WriteTimeout = 100;  # milliseconds to wait for data output
+ ExtraInput = Error;  # do not accept more input than needed</PRE>
+ </TD></TR></TABLE>
+<P>
+ <TT><B>BufferSize=<I>number</I>;</B></TT><BR>
+ At boot time, every record with Stream Device Support allocates a buffer
+ to hold i/o data. The same buffer is used for input and output. If a
+ buffer overflow occurs, <A HREF="processing.html">protocol processing</A>
+ fails and <TT>SEVR/STAT</TT> are set to <TT>INVALID/HW_LIMIT</TT>.
+<P>
+ <TT><B>InTerminator=<I>string</I>;</B></TT><BR>
+ If the terminator string is detected in the input stream while
+ <A HREF="processing.html">processing</A> an <TT><B>in</B></TT> command, no
+ more bytes are read, the terminator is truncated and input parsing starts.
+ The maximum length of the terminator is four bytes.
+ <A HREF="format.html">Format descriptions</A> and wildcard bytes are
+ <I>not</I> allowed here, but you can use the constants <TT><B>CR</B></TT>
+ and <TT><B>LF</B></TT>.
+<P>
+ <TT><B>OutTerminator=<I>string</I>;</B></TT><BR>
+ After an <TT><B>out</B></TT> command has written its message to the output
+ stream, it writes the terminator. Its maximum length is four bytes.
+ <A HREF="format.html">Format descriptions</A> are <I>not</I> allowed here,
+ but you can use the constants <TT><B>CR</B></TT> and <TT><B>LF</B></TT>.
+<P>
+ <TT><B>Terminator=<I>string</I>;</B></TT><BR>
+ Since often <TT><B>InTerminator</B></TT> and <TT><B>OutTerminator</B></TT>
+ are the same, this sets both to the same value.
+<P>
+ <TT><B>Separator=<I>string</I>;</B></TT><BR>
+ If array input or output is required (<TT>waveform</TT> record), this defines
+ the separator between array elements. ASCII i/o often uses <TT>","</TT> as
+ a separator, while raw data i/o uses <TT>""</TT> (no separator). A leading
+ space in the separator is treated special: during input, it matches any
+ number of leading whitespaces (spaces, tabs, etc), even none. During output,
+ it is ignored. If you do not want the leading space to be treated this way,
+ escape it. You can use <TT>"\?"</TT> or <TT>SKIP</TT> to match any byte in
+ input, it will be ignored in output. You must <I>not</I> use
+ <A HREF="format.html">format descriptions</A> here. The maximum length of the
+ separator is 5 bytes (inclusive escape characters).
+<P>
+ <TT><B>LockTimeout=<I>number</I>;</B></TT><BR>
+ Before processing the first <TT><B>out</B></TT> command, the device support
+ locks the output stream. It is released, when the protocol terminates. If a
+ second record tries to lock the same stream, it waits this number of
+ milliseconds before giving up. If the stream is not released within the
+ timeout, <A HREF="processing.html">protocol processing</A> fails and
+ <TT>SEVR/STAT</TT> are set to <TT>INVALID/TIMEOUT</TT>.
+<P>
+ <TT><B>ReplyTimeout=<I>number</I>;</B></TT><BR>
+ When processing an <TT><B>in</B></TT> command, the record waits this number
+ of milliseconds for the first input byte before giving up. If the
+ <TT>SCAN</TT> field of the record is <TT>I/O Intr</TT>, the <I>first</I>
+ <TT><B>in</B></TT> command does never time out. If there is no reply within
+ the timeout, <A HREF="processing.html">protocol processing</A> fails and
+ <TT>SEVR/STAT</TT> are set to <TT>INVALID/TIMEOUT</TT>.
+<P>
+ <TT><B>ReadTimeout=<I>number</I>;</B></TT><BR>
+ After an <TT><B>in</B></TT> command has received a block of bytes (blocksize
+ depends on the bus architecture), it waits this number of milliseconds for
+ the next block until the <TT><B>InTerminator</B></TT> is detected or the
+ bus driver signals the end of the message. If the
+ <TT><B>InTerminator</B></TT> is an empty string, timeout is a valid end
+ condition and input parsing starts. If not,
+ <A HREF="processing.html">protocol processing</A> fails and
+ <TT>SEVR/STAT</TT> are set to <TT>INVALID/READ</TT>. If the timeout is
+ <TT><B>0</B></TT> and the terminator is an empty string, the
+ <TT><B>in</B></TT> command only reads one block of bytes.
+<P>
+ <TT><B>WriteTimeout=<I>number</I>;</B></TT><BR>
+ After an <TT><B>out</B></TT> command has sent a bock of bytes (blocksize
+ depends on the bus architecture), it waits this number of milliseconds for
+ the permission to send the next block. If the output does not complete within
+ the timeout, <A HREF="processing.html">protocol processing</A> fails and
+ <TT>SEVR/STAT</TT> are set to <TT>INVALID/WRITE</TT>.
+<P>
+ <TT><B>ExtraInput=Error</B>|<B>Ignore;</B></TT><BR>
+ If an <TT><B>in</B></TT> command has successfully parsed its input and
+ there is still input left, this parameter determines if this is an error.
+ Either extra input is ignored or <A HREF="processing.html">protocol
+ processing</A> fails and <TT>SEVR/STAT</TT> are set to
+ <TT>INVALID/CALC</TT>.
+ 
+<HR NOSHADE SIZE="1">
+<A HREF="recordtypes.html">Back: Record Types</A><BR>
+<A HREF="recordinterface.html">Next: Record Interface</A>
+<P>
+&copy;&nbsp;Oct 6 1999 / Sep 24 2001, Dirk Zimoch,
+<A HREF="mailto: zimoch@delta.uni-dortmund.de">zimoch@delta.uni-dortmund.de</A>
+</BODY>
+</HTML>

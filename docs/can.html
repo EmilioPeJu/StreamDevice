@@ -1,0 +1,70 @@
+<!DOCTYPE HTML PUBLIC "-//AdvaSoft//DTD HTML 3.2 extended 961018//EN">
+<HTML>
+<HEAD> 
+<TITLE>Stream Device - CAN Interface</TITLE>
+</HEAD>
+<BODY BGCOLOR="#80D5D5" TEXT="#000000" LINK="#2020ff" VLINK="#101080" ALINK="#c02020">
+<TABLE WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+ <TR>
+  <TD ALIGN=center><H1>DELTA Control System</H1>
+   <H2>Dortmunder Elektronen Testspeicherring Anlage</H2>
+   <B>Universit&auml;t Dortmund</B>
+  <TD ALIGN=right VALIGN=top>
+   <IMG SRC="logodelta.gif" ALT="DELTA" WIDTH="108" HEIGHT="85">
+</TABLE>
+<HR NOSHADE SIZE="1"> </BR>
+<H2>Stream Device - CAN Interface</H2>
+<H3>Version 1.5</H3>
+<HR NOSHADE SIZE="1"> </BR>
+ The CAN interface connects the <A HREF="streamdevice.html">Stream Device
+ Support</A> to a CAN bus driver with functions as declared in
+ <B><TT>canBus.h</TT></B> from the EPICS distribution. To link the named
+ CAN bus to this interface, add a line like this to the startup script:
+<TABLE  BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ <I>busName</I>_streamBus = "Can"
+</TD></TR></TABLE>
+ Alternatively, <A HREF="businterface.html">add code to the driver</A> to
+ define this symbol.
+
+<H3>The Hardware Link</H3>
+ In addition to the standard fields <B>protocolFile</B>, <B>protocolName</B>,
+ and <B>busName</B>, the link contains the following parameters:
+<P>
+ <B>TxId</B><BR>
+ The <B>transmit identifier</B> is the CAN identifier, the record
+ writes its output to. The CAN device must receive on this identifier.
+<P>
+ <B>RxId</B><BR>
+ The <B>receive identifier</B> is the CAN identifier, the record
+ reads its input from. The CAN device must transmit on this identifier.
+<P>
+ <B>bytesPerFrame</B><BR>
+ This optional parameter limits the number of output bytes that is sent
+ in a single CAN frame. The default value for this parameter is 8. There
+ is no restriction for the number of bytes in <I>input</I> frames - the
+ CAN device can send any frame size.
+<P>
+ Thus, the link format is:
+<TABLE  BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ @<I>protocolFile protocolName busName TxId RxId</I> [<I>bytesPerFrame</I>]
+</TD></TR></TABLE>
+
+ 
+<H3>Bus Dependent Behaviour</H3>
+ When processing an <TT><B>in</B></TT> command with no <TT>inTerminator</TT>
+ and no <TT>readTimeout</TT>, only one CAN frame will be received.
+<P>
+ The <TT><B>event</B></TT> command waits for remote request frames on the
+ <B>transmit identifier</B>.
+<P>
+ As long as no <TT><B>in</B></TT> command is beeing processed, all CAN frames
+ on the receive identifier are ignored.
+  
+<HR NOSHADE SIZE="1">
+<A HREF="businterface.html">Back: Bus Interface</A><BR>
+<A HREF="gpib.html">Next: GPIB Interface</A>
+<P>
+&copy;&nbsp;Sep 16 1999 / Sep 25 2001, Dirk Zimoch,
+<A HREF="mailto: zimoch@delta.uni-dortmund.de">zimoch@delta.uni-dortmund.de</A>
+</BODY>
+</HTML>

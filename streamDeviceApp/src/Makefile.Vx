@@ -1,0 +1,44 @@
+# Makefile.Vx
+TOP = ../../..
+include $(TOP)/config/CONFIG_APP
+#----------------------------------------
+# Add your own stream records and busses here.
+# This requires the naming conventions
+# dev$(RECORD)Stream.c and stream$(BUS).c
+#
+
+RECORDS += Ao Ai
+RECORDS += Bo Bi
+RECORDS += Mbbo Mbbi
+RECORDS += MbboDirect MbbiDirect
+RECORDS += Lo Li
+RECORDS += So Si
+RECORDS += Wf
+
+#BUSSES  += Gpib
+#BUSSES  += Can
+#BUSSES  += File
+BUSSES  += Tty
+
+#----------------------------------------
+#USR_CFLAGS += -DDEBUG
+
+SRCS.c += ../devStream.c          
+SRCS.c += ../devStreamProtocol.c  
+SRCS.c += $(foreach RECORD, $(RECORDS), ../dev$(RECORD)Stream.c)
+SRCS.c += $(foreach BUS, $(BUSSES), ../stream$(BUS).c)
+
+LIBOBJS += devStream.o          
+LIBOBJS += devStreamProtocol.o  
+LIBOBJS += $(foreach RECORD, $(RECORDS), dev$(RECORD)Stream.o)
+
+LIBNAME = streamLib
+
+BIN_INSTALLS += $(foreach BUS, $(BUSSES), stream$(BUS).o)
+
+TARGETS += $(INSTALL_DBD)/stream.dbd
+
+INC += devStream.h
+INC += devStreamProtocol.h
+
+include $(TOP)/config/RULES.Vx

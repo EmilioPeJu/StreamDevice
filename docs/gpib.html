@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//AdvaSoft//DTD HTML 3.2 extended 961018//EN">
+<HTML>
+<HEAD> 
+<TITLE>Stream Device - GPIB Interface</TITLE>
+</HEAD>
+<BODY BGCOLOR="#80D5D5" TEXT="#000000" LINK="#2020ff" VLINK="#101080" ALINK="#c02020">
+<TABLE WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+ <TR>
+  <TD ALIGN=center><H1>DELTA Control System</H1>
+   <H2>Dortmunder Elektronen Testspeicherring Anlage</H2>
+   <B>Universit&auml;t Dortmund</B>
+  <TD ALIGN=right VALIGN=top>
+   <IMG SRC="logodelta.gif" ALT="DELTA" WIDTH="108" HEIGHT="85">
+</TABLE>
+<HR NOSHADE SIZE="1"> </BR>
+<H2>Stream Device - GPIB Interface</H2>
+<H3>Version 1.5</H3>
+<HR NOSHADE SIZE="1"> </BR>
+ The GPIB interface connects the <A HREF="streamdevice.html">Stream Device
+ Support</A> to the <B>Universal GPIB Driver Interface</B>. This driver supports
+ the Stream Device, i.e. it defines the symbol
+ <TT><I>busName</I>_streamBus</TT> and gives it the value <TT>"Gpib"</TT>.
+ It handles service requests (SRQs) by performing a serial poll (first on
+ all devices that are known to be online, then on the other addresses if
+ the SRQ source was not found).
+ 
+<H3>The Hardware Link</H3>
+ In addition to the standard fields <B>protocolFile</B>, <B>protocolName</B>,
+ and <B>busName</B>, the link contains the following parameters:
+<P>
+ <B>address</B><BR>
+ This is the GPIB (or HP-IB) address of the device. If the device needs a
+ secondary address, multipy it by 256 and add it to the primary address.
+<P>
+ <B>inpSRQ</B><BR>
+ If the optional <B>inpSRQ</B> mask is set, SRQ is used to wait for input.
+ When processing an <TT><B>in</B></TT> command, the device support waits
+ for a SRQ with one of the bits in the <B>inpSRQ</B> mask set in the status
+ byte (STB). If the STB matches the mask, the device will be addressed as
+ the talker to send its output. While the <TT><B>in</B></TT> command waits,
+ the bus stays free for other i/o. If <B>inpSRQ</B> is not set (is 0), the
+ <TT><B>in</B></TT> command addresses the talker before waiting for input.
+ This blocks the bus on all addresses.
+<P>
+ <B>errSRQ</B><BR>
+ The <B>errSRQ</B> mask is used only if <B>inpSRQ</B> is set. It can be used
+ as a signal to a waiting <TT><B>in</B></TT> command that there will not be
+ any input. The <TT><B>in</B></TT> command stops waiting and fails at once,
+ rather than running into a <TT>replyTimeout</TT>. 
+<P>
+ <B>evtSRQ</B><BR>
+ The <TT><B>event</B></TT> command waits for a SRQ that matches the
+ <B>evtSRQ</B> mask. If an <TT><B>event</B></TT> command is used, but the
+ <B>evtSRQ</B> mask is 0, the command fails. If you need the <B>evtSRQ</B>
+ mask, but no <B>inpSRQ</B> or <B>errSRQ</B> mask, write a 0 for the preceding
+ masks.
+<P>
+ Thus, the link format is:
+<TABLE  BGCOLOR=white WIDTH = 100%><TR><TD><PRE>
+ @<I>protocolFile protocolName busName address</I> [<I>inpSRQ</I> [<I>errSRQ</I> [<I>evtSRQ</I>]]]
+</TD></TR></TABLE>
+
+<H3>Bus Dependent Behaviour</H3>
+ Use SRQ triggered input whenever possible. I do not recommend to use input
+ without SRQ in records where the <TT>SCAN</TT> field is <TT>I/O Intr</TT>.
+ This can block the entire bus forever! Make sure that the device will send
+ SRQs! Eventually send a command to set the SRQ mask of the device at the
+ beginning of every protocol.
+<P>
+ Unsolved Problem: If two or more records are waiting for SRQ triggered input at the same time
+ (e.g. they are <TT>I/O Intr</TT>), any SRQ triggered input will be shared
+ among all those records, even if the STB does not match <U>all</U>
+ <B>inpSRQ</B> masks. Not SRQ triggered input will not be shared.
+  
+<HR NOSHADE SIZE="1">
+<A HREF="can.html">Back: CAN Interface</A>
+<P>
+&copy;&nbsp;Sep 16 1999 / Sep 25 2001, Dirk Zimoch,
+<A HREF="mailto: zimoch@delta.uni-dortmund.de">zimoch@delta.uni-dortmund.de</A>
+</BODY>
+</HTML>

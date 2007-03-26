@@ -1,0 +1,56 @@
+Release 1_1
+  CHANGES.TXT added
+  event command added
+  parallel asynchronously waiting GPIB problem fixed
+  waveform support added
+
+Release 1_2
+  minor changes in doc and debug output
+
+Relase 1_3
+  minor changes of debug output
+  parameters added to protocols
+  single quotes allowed in protocol
+  problems with very quick answers in CAN interface fixed
+  problem with multi-byte terminator in GPIB interface fixed
+  
+Release 1_4
+  bug in bus lock mechanism fixed
+  parantheses allowed to quote strings in protocol
+  changes of debug output in waveform interface
+  separate waveform input and output device supports
+  more debug output in GPIB interface added
+
+Release 1_5
+  use VAL field in mbbi and mbbiDirect if MASK is 0
+  2nd bug in bus lock mechanism fixed
+  documentation updated
+  workaround for what seems to be a vxWorks bug in watchdogs on PPC
+   - bug description: In rare cases, watchdogs with timeout of a few
+     ticks never trigger. wdStart had returned OK and wdShow says the
+     whatchdog has timed out, but the callbback function has never
+     been called.
+     This has been observed on Motorola MVME2306 boards with the mv2304 BSP
+     but not on Force FRC30 or FRC60.
+   - effect: The bug effects all watchdogs, but is most obvious in the 'wait'
+     protocol command. The record hangs forevever, STAT switches to
+     SCAN_ALARM and all other records connected to the same device are
+     blocked and receive lock timeouts forever.
+   - The workaround helps but can NOT ensure 100% functionality.
+
+Release 1_5D  
+   extends streamDevice Version 1.5 from DELTA control system
+   to interface with VxWorks TTY serial devices
+
+Release 1_6D 
+PHO 3-3-3 : 
+   extends streamDevice Version 1.6 from DELTA control system
+   to interface with VxWorks TTY serial devices
+
+Release 1_7 
+PHO 25-7-04 :
+   adjust config/RELEASE to reflect new ADE structure
+
+Release 2_0 
+PHO 26-7-04 :
+   Initial version for EPICS_3_13_9 (still stream device v1.6)

@@ -1,0 +1,29 @@
+# Where to install ascii display lists for dm2k
+INSTALL_ADL = $(INSTALL_LOCATION)/adl
+
+INSTALL_ADLS= $(ADLS:%=$(INSTALL_ADL)/%)
+
+all::   install
+
+adls::   $(INSTALL_ADLS)
+
+inc:: adls
+
+rebuild:: clean install
+
+install:: adls
+
+buildInstall:: $(INSTALL_ADLS)
+
+clean::
+	@echo "Cleaning"
+
+$(INSTALL_ADL)/%: %
+	@echo "Installing adl file $@"
+	@$(INSTALL) -d -m 644 $< $(@D)
+
+$(INSTALL_ADL)/%: ../%
+	@echo "Installing adl file $@"
+	@$(INSTALL) -d -m 644 $< $(@D)
+
+

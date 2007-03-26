@@ -1,0 +1,215 @@
+<!DOCTYPE HTML PUBLIC "-//AdvaSoft//DTD HTML 3.2 extended 961018//EN">
+<HTML>
+<HEAD>
+<TITLE>Stream Device - Record Types</TITLE>
+</HEAD>
+<BODY BGCOLOR="#80D5D5" TEXT="#000000" LINK="#2020ff" VLINK="#101080" ALINK="#c02020">
+<TABLE WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+ <TR>
+  <TD ALIGN=center><H1>DELTA Control System</H1>
+   <H2>Dortmunder Elektronen Testspeicherring Anlage</H2>
+   <B>Universit&auml;t Dortmund</B>
+  <TD ALIGN=right VALIGN=top>
+   <IMG SRC="logodelta.gif" ALT="DELTA" WIDTH="108" HEIGHT="85">
+</TABLE>
+<HR NOSHADE SIZE="1"> </BR>
+<H2> Stream Device - Record Types</H2>
+<H3> Version 1.5</H3>
+<HR NOSHADE SIZE="1"> </BR>
+
+<P>
+ At the moment, the <A HREF="streamdevice.html">Stream Device</A> supports the
+ record types <B>ai</B>, <B>ao</B>, <B>bi</B>, <B>bo</B>, <B>mbbi</B>,
+ <B>mbbo</B>, <B>mbbiDirect</B>, <B>mbboDirect</B>, <B>longin</B>,
+ <B>longout</B>, <B>stringin</B>, <B>stringout</B>, and <B>waveform</B>. You
+ can <A HREF="recordinterface.html">add support for your own record types</A>.
+<P>
+ The following table shows which <A HREF="format.html">format
+ descriptions</A> are supported by any record type. The variable
+ <TT><VAR>x</VAR></TT> stands for the read or written value.
+<P>
+<TABLE BORDER="2" WIDTH="100%" BGCOLOR="#A2E4DC">
+ <TR><TH>Record Type</TH>
+     <TH>Command</TH>
+     <TH>Formats</TH>
+     <TH>Assignment</TH>
+ </TR>
+ <TR><TH ROWSPAN="2">ai</TH>
+     <TH ROWSPAN="2"><TT><B>in</B></TT></TH>
+     <TD><TT><B>fgGeE<B><TT></TD>
+     <TD><TT>VAL=<VAR>x</VAR>*(ASLO==0?1:ASLO)+AOFF</TT></TD>
+ </TR>
+ <TR><TD><TT><B>idouxXbrD<B><TT></TD>
+     <TD><TT>RVAL=<VAR>x</VAR></TT></TD>
+ </TR>
+ 
+ <TR><TH ROWSPAN="4">ao</TH>
+     <TH ROWSPAN="2"><TT><B>out</B></TT></TH>
+     <TD><TT><B>fgGeE<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=(OVAL-AOFF)/(ASLO==0?1:ASLO)</TT></TD>
+ </TR>
+ <TR><TD><TT><B>idouxXbrD<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=RVAL</TT></TD>
+ </TR>
+ <TR><TH ROWSPAN="2"><TT><B>in</B></TT></TH>
+     <TD><TT><B>fgGeE<B><TT></TD>
+     <TD><TT>VAL=<VAR>x</VAR>*(ASLO==0?1:ASLO)+AOFF</TT></TD>
+ </TR>
+ <TR><TD><TT><B>idouxXbrD<B><TT></TD>
+     <TD><TT>RBV=<VAR>x</VAR></TT></TD>
+ </TR>
+
+ <TR><TH ROWSPAN="2">bi</TH>
+     <TH ROWSPAN="2"><TT><B>in</B></TT></TH>
+     <TD><TT><B>{<B><TT></TD>
+     <TD>if <TT><VAR>x</VAR>&lt;2</TT> then <TT>VAL=<VAR>x</VAR></TT>
+     else <TT>SOFT_ALARM</TD>
+ </TR>
+ <TR><TD><TT><B>idouxXbrD<B><TT></TD>
+     <TD><TT>RVAL=<VAR>x</VAR></TT></TD>
+ </TR>
+
+ <TR><TH ROWSPAN="5">bo</TH>
+     <TH ROWSPAN="3"><TT><B>out</B></TT></TH>
+     <TD><TT><B>{<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=VAL<VAR></TD>
+ </TR>
+ <TR><TD><TT><B>idouxXbrD<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=RVAL</TT></TD>
+ </TR>
+ <TR><TD><TT><B>s<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=(VAL==0?ZNAM:ONAM)</TT></TD>
+ </TR>
+ <TR><TH ROWSPAN="2"><TT><B>in</B></TT></TH>
+     <TD><TT><B>{<B><TT></TD>
+     <TD>if <TT><VAR>x</VAR>&lt;2</TT> then <TT>VAL=<VAR>x</VAR></TT>
+     else <TT>SOFT_ALARM</TD>
+ </TR>
+ <TR><TD><TT><B>idouxXbrD<B><TT></TD>
+     <TD><TT>RBV=<VAR>x</VAR></TT></TD>
+ </TR>
+
+ <TR><TH ROWSPAN="1">longin</TH>
+     <TH ROWSPAN="1"><TT><B>in</B></TT></TH>
+     <TD><TT><B>idouxXbrD{<B><TT></TD>
+     <TD><TT>VAL=<VAR>x</VAR></TT></TD>
+ </TR>
+
+ <TR><TH ROWSPAN="2">longout</TH>
+     <TH ROWSPAN="1"><TT><B>out</B></TT></TH>
+     <TD><TT><B>idouxXbrD{<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=VAL</TT></TD>
+ </TR>
+ <TR><TH ROWSPAN="1"><TT><B>in</B></TT></TH>
+     <TD><TT><B>idouxXbrD{<B><TT></TD>
+     <TD><TT>VAL=<VAR>x</VAR></TT></TD>
+ </TR>
+ 
+ <TR><TH ROWSPAN="2">mbbi</TH>
+     <TH ROWSPAN="2"><TT><B>in</B></TT></TH>
+     <TD><TT><B>{<B><TT></TD>
+     <TD>if <TT><VAR>x</VAR>&lt;17</TT> then <TT>VAL=<VAR>x</VAR></TT>
+     else <TT>SOFT_ALARM</TD>
+ </TR>
+ <TR><TD><TT><B>idouxXbrD<B><TT></TD>
+     <TD><TT>RVAL=<VAR>x</VAR>&amp;MASK</TT></TD>
+ </TR>
+ 
+ <TR><TH ROWSPAN="5">mbbo</TH>
+     <TH ROWSPAN="3"><TT><B>out</B></TT></TH>
+     <TD><TT><B>{<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=VAL<VAR></TD>
+ </TR>
+ <TR><TD><TT><B>idouxXbrD<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=RVAL</TT></TD>
+ </TR>
+ <TR><TD><TT><B>s<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=VAL</TT><SUP><SMALL>th</SMALL></SUP></TT>
+     of <TT>ZRST</TT>...<TT>FFST</TT></TD>
+ </TR>
+ <TR><TH ROWSPAN="2"><TT><B>in</B></TT></TH>
+     <TD><TT><B>{<B><TT></TD>
+     <TD>if <TT><VAR>x</VAR>&lt;17</TT> then <TT>VAL=<VAR>x</VAR></TT>
+     else <TT>SOFT_ALARM</TD>
+ </TR>
+ <TR><TD><TT><B>idouxXbrD<B><TT></TD>
+     <TD><TT>RBV=<VAR>x</VAR>&amp;MASK</TT></TD>
+ </TR>
+ 
+ <TR><TH ROWSPAN="1">mbbiDirect</TH>
+     <TH ROWSPAN="1"><TT><B>in</B></TT></TH>
+     <TD><TT><B>idouxXbrD<B><TT></TD>
+     <TD><TT>RVAL=<VAR>x</VAR>&amp;MASK</TT></TD>
+ </TR>
+ 
+ <TR><TH ROWSPAN="2">mbboDirect</TH>
+     <TH ROWSPAN="1"><TT><B>out</B></TT></TH>
+     <TD><TT><B>idouxXbrD<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=RVAL</TT></TD>
+ </TR>
+ <TR><TH ROWSPAN="1"><TT><B>in</B></TT></TH>
+     <TD><TT><B>idouxXbrD<B><TT></TD>
+     <TD><TT>RBV=<VAR>x</VAR>&amp;MASK</TT></TD>
+ </TR>
+
+ <TR><TH ROWSPAN="1">stringin</TH>
+     <TH ROWSPAN="1"><TT><B>in</B></TT></TH>
+     <TD><TT><B>sc[<B><TT></TD>
+     <TD><TT>VAL=<VAR>x</VAR></TT></TD>
+ </TR>
+ 
+ <TR><TH ROWSPAN="2">stringout</TH>
+     <TH ROWSPAN="1"><TT><B>out</B></TT></TH>
+     <TD><TT><B>s<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=VAL</TT></TD>
+ </TR>
+ <TR><TH ROWSPAN="1"><TT><B>in</B></TT></TH>
+     <TD><TT><B>sc[<B><TT></TD>
+     <TD><TT>VAL=<VAR>x</VAR></TT></TD>
+ </TR>
+
+ <TR><TH ROWSPAN="6">waveform</TH>
+     <TH ROWSPAN="3"><TT><B>out</B></TT></TH>
+     <TD><TT><B>fgGeE<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=VAL</TT>
+        if </TT>FTVL</TT> is <TT>FLOAT</TT> or <TT>DOUBLE</TT></TD>
+ </TR>
+ <TR><TD><TT><B>fgGeEidouxXbrD{<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=VAL</TT>
+        if </TT>FTVL</TT> is an integer type</TD>
+ </TR>
+ <TR><TD><TT><B>s<B><TT></TD>
+     <TD><TT><VAR>x</VAR>=VAL</TT>
+        if </TT>FTVL</TT> is <TT>STRING</TT></TD>
+ </TR>
+ <TR><TH ROWSPAN="3"><TT><B>in</B></TT></TH>
+     <TD><TT><B>fgGeEidouxXbrD{<B><TT></TD>
+     <TD><TT>VAL=<VAR>x</VAR></TT>
+        if </TT>FTVL</TT> is <TT>FLOAT</TT> or <TT>DOUBLE</TT></TD>
+ </TR>
+ <TR><TD><TT><B>idouxXbrD{<B><TT></TD>
+     <TD><TT>VAL=<VAR>x</VAR></TT>
+        if </TT>FTVL</TT> is an integer type</TD>
+ </TR>
+ <TR><TD><TT><B>sc[<B><TT></TD>
+     <TD><TT>VAL=<VAR>x</VAR></TT>
+        if </TT>FTVL</TT> is <TT>STRING</TT></TD>
+ </TR>
+</TABLE>
+ 
+<P>
+ Some record supports want fields to be set by the device support
+ (<TT>ROFF</TT>, <TT>ESLO</TT>, <TT>MASK</TT>, <TT>SHFT</TT>). The Stream
+ Device Support does not set any of them with one exeption: the <TT>MASK</TT>
+ field of <TT>mbb*</TT> records is shifted left by <TT>SHFT</TT> bits. The
+ fields can be specified in the <TT>.db</TT> file even though the Record
+ Reference Manual says that the DCT can not set them.
+ 
+<HR NOSHADE SIZE="1">
+<A HREF="format.html">Back: Format Descriptions</A><BR>
+<A HREF="parameters.html">Next: Protocol Parameters</A><BR>
+<P>
+&copy;&nbsp;Oct 6 1999 / Sep 24 2001, Dirk Zimoch,
+<A HREF="mailto: zimoch@delta.uni-dortmund.de">zimoch@delta.uni-dortmund.de</A>
+</BODY>
+</HTML>
