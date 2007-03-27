@@ -1884,6 +1884,7 @@ LOCAL void busLockRequest (streamPrivate_t *stream)
 {
     streamPrivate_t **queue = &(stream->lockQueue[stream->public.channel]);
     streamPrivate_t **current;
+    streamPrivate_t **first; /* pointer to first item in list */
     streamPrivate_t *temp;
     
     if (devStreamDebug)
@@ -1895,6 +1896,7 @@ LOCAL void busLockRequest (streamPrivate_t *stream)
     if (*queue != NULL)
     {
         current = &((*queue)->lockNext); /* start *after* 1st in queue */
+	first = current;
         while (*current != NULL)
         {
             if ((*current)->lockCancelled)
@@ -1906,10 +1908,16 @@ LOCAL void busLockRequest (streamPrivate_t *stream)
                 temp = *current;
                 current = &(temp->lockNext);
                 temp->lockNext = NULL;
+		/* test for infinite loop where last item refernces first - has been seen to happen!! - IJG 26/3/2007 */
+		if (current == first)
+		   break;
             }
             else
             {
                 current = &((*current)->lockNext);
+		/* test for infinite loop where last item refernces first - has been seen to happen!! - IJG 26/3/2007 */
+		if (current == first)
+		   break;
             }
         }
     }
@@ -1942,11 +1950,15 @@ LOCAL void busLockRequest (streamPrivate_t *stream)
     {
         /* insert before entry with weaker priority */
         current = &((*queue)->lockNext);       /* start *after* 1st in queue */
+	first = current;
         while (*current != NULL &&
             (*current)->public.callback.priority >=
                 stream->public.callback.priority)   /* until prio is smaller */
         {
             current = &((*current)->lockNext);
+            /* test for infinite loop where last item refernces first - has been seen to happen!! - IJG 26/3/2007 */
+	    if (current == first)
+	        break;
         }
         stream->lockNext = *current;
         *current = stream;
