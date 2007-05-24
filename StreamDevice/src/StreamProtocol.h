@@ -24,9 +24,6 @@
 #include "StreamBuffer.h"
 #include <stdio.h>
 
-#define cr  '\r'
-#define lf  '\n'
-
 enum FormatType {NoFormat, ScanFormat, PrintFormat};
 
 class StreamProtocolParser
@@ -128,7 +125,6 @@ public:
         const StreamBuffer& protocolAndParams);
     static void free();
     static const char* path;
-    static const char* formatTypeStr(int type);
     static const char* printString(StreamBuffer&, const char* string);
     void report();
 };

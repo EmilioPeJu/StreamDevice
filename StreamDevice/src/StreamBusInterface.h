@@ -22,20 +22,26 @@
 
 #include <stddef.h>
 
+enum StreamIoStatus {
+    StreamIoSuccess, StreamIoTimeout, StreamIoNoReply,
+    StreamIoEnd, StreamIoFault
+};
+
+extern const char* StreamIoStatusStr[];
+
 class StreamBusInterface
 {
 public:
-    enum IoStatus {ioSuccess, ioTimeout, ioNoReply, ioEnd, ioFault};
 
     class Client
     {
         friend class StreamBusInterface;
-        virtual void lockCallback(IoStatus status) = 0;
-        virtual void writeCallback(IoStatus status);
-        virtual long readCallback(IoStatus status,
+        virtual void lockCallback(StreamIoStatus status) = 0;
+        virtual void writeCallback(StreamIoStatus status);
+        virtual long readCallback(StreamIoStatus status,
             const void* input, long size);
-        virtual void eventCallback(IoStatus status);
-        virtual void connectCallback(IoStatus status);
+        virtual void eventCallback(StreamIoStatus status);
+        virtual void connectCallback(StreamIoStatus status);
         virtual long priority();
         virtual const char* name() = 0;
 
@@ -98,16 +104,16 @@ protected:
     StreamBusInterface(Client* client);
     
 // map client functions into StreamBusInterface namespace
-    void lockCallback(IoStatus status)
+    void lockCallback(StreamIoStatus status)
         { client->lockCallback(status); }
-    void writeCallback(IoStatus status)
+    void writeCallback(StreamIoStatus status)
         { client->writeCallback(status); }
-    long readCallback(IoStatus status,
+    long readCallback(StreamIoStatus status,
         const void* input = NULL, long size = 0)
         { return client->readCallback(status, input, size); }
-    void eventCallback(IoStatus status)
+    void eventCallback(StreamIoStatus status)
         { client->eventCallback(status); }
-    void connectCallback(IoStatus status)
+    void connectCallback(StreamIoStatus status)
         { client->connectCallback(status); }
     long priority() { return client->priority(); }
     const char* clientName() { return client->name(); }

@@ -28,6 +28,13 @@ proc connect {sock addr port} {
     fileevent $sock readable "receiveHandler $sock"
 }
 
+proc sendReply {sock text} {
+    .$sock.t mark set insert end
+    .$sock.t insert end $text
+    .$sock.t see end
+    puts -nonewline $sock $text
+}
+
 proc receiveHandler {sock} {
     set a [read $sock]
     if [eof $sock] {
@@ -38,9 +45,7 @@ proc receiveHandler {sock} {
     .$sock.t insert end $a output
     .$sock.t see end
     if {[string range $a 0 4] == "echo "} {
-        .$sock.t insert end [string range $a 5 end]
-        .$sock.t see end
-        puts -nonewline $sock [string range $a 5 end]
+        sendReply $sock [string range $a 5 end]
     }
 }
 
@@ -60,10 +65,7 @@ proc $insert {w s} {
     if {[string equal $s ""] || [string equal [$w cget -state] "disabled"]} {
         return
     }
-    $w mark set insert end
-    $w insert end $s
-    $w see end
-    puts -nonewline $socket($w) $s
+    sendReply $socket($w) $s
 }
 
 proc $paste {w x y} {

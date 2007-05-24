@@ -19,6 +19,10 @@
 
 #include "StreamBusInterface.h"
 
+const char* StreamIoStatusStr[] = {
+    "StreamIoSuccess", "ioTimeout", "ioNoReply", "ioEnd", "ioFault"
+};
+
 StreamBusInterfaceRegistrarBase* StreamBusInterfaceRegistrarBase::first;
 
 StreamBusInterfaceRegistrarBase::
@@ -111,23 +115,23 @@ cancelAll()
 }
 
 void StreamBusInterface::Client::
-writeCallback(IoStatus)
+writeCallback(StreamIoStatus)
 {
 }
 
 long StreamBusInterface::Client::
-readCallback(IoStatus, const void*, long)
+readCallback(StreamIoStatus, const void*, long)
 {
     return 0;
 }
 
 void StreamBusInterface::Client::
-eventCallback(IoStatus)
+eventCallback(StreamIoStatus)
 {
 }
 
 void StreamBusInterface::Client::
-connectCallback(IoStatus)
+connectCallback(StreamIoStatus)
 {
 }
 

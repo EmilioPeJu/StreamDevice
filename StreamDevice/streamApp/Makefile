@@ -11,13 +11,13 @@ else
 # EPICS R3.14
 include $(TOP)/configure/CONFIG
 
-HOST_OPT = NO
+#HOST_OPT = NO
 
 PROD = streamApp
 DBD  = streamApp.dbd
 
 streamApp_DBD += base.dbd
-streamApp_DBD += aaiRecord.dbd aaoRecord.dbd
+#streamApp_DBD += aaiRecord.dbd aaoRecord.dbd
 
 PROD_SRCS += streamApp_registerRecordDeviceDriver.cpp
 PROD_SRCS_DEFAULT = streamAppMain.cc
@@ -28,13 +28,13 @@ PROD_LIBS = stream
 ifdef ASYN
 # Which types of asyn busses do you have?
 ifneq ($(OS_CLASS), WIN32)
-# asynDriver does not support serial port for Windows
+# asynDriver up to version 4-8 does not support serial port for Windows!
 streamApp_DBD += drvAsynSerialPort.dbd
 endif
 streamApp_DBD += drvAsynIPPort.dbd
 #streamApp_DBD += drvGsIP488.dbd
 #streamApp_DBD += drvNi1014.dbd
-#streamApp_DBD += drvVxi11.dbd
+streamApp_DBD += drvVxi11.dbd
 PROD_LIBS += asyn
 endif
 

@@ -39,57 +39,57 @@ extern "C" {
 #include <asynOctet.h>
 #include <asynInt32.h>
 #include <asynUInt32Digital.h>
+#include <asynGpibDriver.h>
 
 /* How things are implemented:
 
 synchonous io:
 
 lockRequest()
-    call pasynManager->blockProcessCallback(),
-    call pasynCommon->connect() only if
+    pasynManager->blockProcessCallback(),
+    pasynCommon->connect() only if
         lockTimeout is unlimited (0) and port is not yet connected
-    call pasynManager->queueRequest()
+    pasynManager->queueRequest()
     when request is handled
-        call lockCallback(ioSuccess)
+        lockCallback(StreamIoSuccess)
     if request fails
-        call lockCallback(ioTimeout)
+        lockCallback(StreamIoTimeout)
 
 writeRequest()
-    call pasynManager->queueRequest()
+    pasynManager->queueRequest()
     when request is handled
-        call pasynOctet->flush()
-        call pasynOctet->writeRaw()
+        pasynOctet->flush()
+        pasynOctet->writeRaw()
         if writeRaw() times out
-            call writeCallback(ioTimeout)
+            writeCallback(StreamIoTimeout)
         if writeRaw fails otherwise
-            call writeCallback(ioFault)
+            writeCallback(StreamIoFault)
         if writeRaw succeeds and all bytes have been written
-            call writeCallback(ioSuccess)
+            writeCallback(StreamIoSuccess)
         if not all bytes can be written
-            call pasynManager->queueRequest() again
+            pasynManager->queueRequest() to write next part
     if request fails
-        call writeCallback(ioTimeout)
+        writeCallback(StreamIoTimeout)
 
 readRequest()
-    call pasynManager->queueRequest()
+    pasynManager->queueRequest()
     when request is handled
-        call pasynOctet->setInputEos()
-        call pasynOctet->read()
-        if read() times out at the first byte
-            call readCallback(ioNoReply)
-        if read() times out at next bytes
-            call readCallback(ioTimeout,buffer,received)
-        if read() fails otherwise
-            call readCallback(ioFault,buffer,received)
-        if read() is successfull and reason is ASYN_EOM_END
-            or ASYN_EOM_EOS
-            call readCallback(ioEnd,buffer,received)
-        if read() is successfull and no end is detected
-            call readCallback(ioSuccess,buffer,received)
+        pasynOctet->setInputEos()
+        pasynOctet->read()
+        if time out at the first byte
+            readCallback(StreamIoNoReply)
+        if time out at next bytes
+            readCallback(StreamIoTimeout,buffer,received)
+        if other fault
+            readCallback(StreamIoFault,buffer,received)
+        if success and reason is ASYN_EOM_END or ASYN_EOM_EOS
+            readCallback(StreamIoEnd,buffer,received)
+        if success and no end detected
+            readCallback(StreamIoSuccess,buffer,received)
         if readCallback() has returned true (wants more input)
             loop back to the pasynOctet->read() call
     if request fails
-        call readCallback(ioFault)
+        readCallback(StreamIoFault)
 
 unlock()
     call pasynManager->unblockProcessCallback()
@@ -100,27 +100,6 @@ pasynOctet->registerInterruptUser(...,intrCallbackOctet,...) is called
 initially. This calls intrCallbackOctet() every time input is received,
 but only if someone else is doing a read. Thus, if nobody reads
 something, arrange for periodical read polls.
-
-enableAsyncRead()
-    set asynReadEnabled true
-    when input arrives for any asynUser
-        call readCallback(ioSuccess,buffer,received)
-        if readCallback() has returned true (wants more input)
-            start timer(readTimeout) while waiting for more input
-            if timer expires
-                call readCallback(ioTimeout)
-        else start timer(replyTimeout) for new poll cycle
-            when timer expires
-                call pasynManager->queueRequest()
-                when request is handeled
-                    do the same as in readRequest() (see above)
-                if request fails
-                    start timer(replyTimeout) for new poll cycle
-
-
-disableAsyncRead()
-    set asynReadEnabled false
-    That means that intrCallbackOctet() ignores asyncronous input
 
 */
 
@@ -136,14 +115,22 @@ static void intrCallbackUInt32(void* pvt, asynUser *pasynUser,
 }
 
 enum IoAction {
-    None, Lock, Write, Read, AsyncRead, AsyncReadMore, ReceiveEvent,
-    Connect, Disconnect
+    None, Lock, Write, Read, AsyncRead, AsyncReadMore, AsyncReadCancelled,
+    ReceiveEvent, Connect, Disconnect
 };
 
 static const char* ioActionStr[] = {
     "None", "Lock", "Write", "Read",
-    "AsyncRead", "AsyncReadMore", "ReceiveEvent",
-    "Connect", "Disconnect"
+    "AsyncRead", "AsyncReadMore", "AsyncReadCancelled",
+    "ReceiveEvent", "Connect", "Disconnect"
+};
+
+static const char* asynStatusStr[] = {
+    "asynSuccess", "asynTimeout", "asynOverflow", "asynError"
+};
+
+static const char* eomReasonStr[] = {
+    "NONE", "CNT", "EOS", "CNT+EOS", "END", "CNT+END", "EOS+END", "CNT+EOS+END"
 };
 
 class AsynDriverInterface : StreamBusInterface
@@ -163,6 +150,8 @@ class AsynDriverInterface : StreamBusInterface
     asynUInt32Digital* pasynUInt32;
     void* pvtUInt32;
     void* intrPvtUInt32;
+    asynGpib* pasynGpib;
+    void* pvtGpib;
     IoAction ioAction;
     double lockTimeout;
     double writeTimeout;
@@ -174,6 +163,7 @@ class AsynDriverInterface : StreamBusInterface
     StreamBuffer inputBuffer;
     const char* outputBuffer;
     size_t outputSize;
+    int peeksize;
 #ifdef EPICS_3_14
     epicsTimerQueueActive* timerQueue;
     epicsTimer* timer;
@@ -215,7 +205,7 @@ class AsynDriverInterface : StreamBusInterface
     void connectHandler();
     void disconnectHandler();
     bool connectToAsynPort();
-    void asynReadHandler(char *data, size_t numchars);
+    void asynReadHandler(const char *data, size_t numchars, int eomReason);
     asynQueuePriority priority() {
         return static_cast<asynQueuePriority>
             (StreamBusInterface::priority());
@@ -251,7 +241,6 @@ public:
     // static creator method
     static StreamBusInterface* getBusInterface(Client* client,
         const char* busname, int addr, const char* param);
-
 };
 
 RegisterStreamBusInterface(AsynDriverInterface);
@@ -266,8 +255,10 @@ AsynDriverInterface(Client* client) : StreamBusInterface(client)
     intrPvtInt32 = NULL;
     pasynUInt32 = NULL;
     intrPvtUInt32 = NULL;
+    pasynGpib = NULL;
     eventMask = 0;
     receivedEvent = 0;
+    peeksize = 1;
     pasynUser = pasynManager->createAsynUser(handleRequest,
         handleTimeout);
     assert(pasynUser);
@@ -404,6 +395,18 @@ connectToBus(const char* busname, int addr)
     pasynOctet = static_cast<asynOctet*>(pasynInterface->pinterface);
     pvtOctet = pasynInterface->drvPvt;
 
+    // is it a GPIB interface ?
+    pasynInterface = pasynManager->findInterface(pasynUser,
+        asynGpibType, true);
+    if(pasynInterface)
+    {
+        pasynGpib = static_cast<asynGpib*>(pasynInterface->pinterface);
+        pvtGpib = pasynInterface->drvPvt;
+        // asynGpib returns overflow error if we try to peek
+        // (read only one byte first).
+        peeksize = 100;
+    }
+
     // look for interfaces for events
     pasynInterface = pasynManager->findInterface(pasynUser,
         asynInt32Type, true);
@@ -472,7 +475,9 @@ lockRequest(unsigned long lockTimeout_ms)
             clientName(), pasynUser->errorMessage);
         return false;
     }
-    // continues with handleRequest() or handleTimeout()
+    // continues with:
+    //    handleRequest() -> lockHandler() -> lockCallback()
+    // or handleTimeout() -> lockCallback(StreamIoTimeout)
     return true;
 }
 
@@ -495,8 +500,8 @@ connectToAsynPort()
     {
         status = pasynCommon->connect(pvtCommon, pasynUser);
         debug("AsynDriverInterface::connectToAsynPort(%s): "
-                "status=%d\n",
-            clientName(), status);
+                "status=%s\n",
+            clientName(), asynStatusStr[status]);
         if (status != asynSuccess)
         {
             error("%s: pasynCommon->connect() failed: %s\n",
@@ -514,7 +519,7 @@ lockHandler()
     debug("AsynDriverInterface::lockHandler(%s)\n",
         clientName());
     pasynManager->blockProcessCallback(pasynUser, false);
-    lockCallback(ioSuccess);
+    lockCallback(StreamIoSuccess);
 }
 
 // interface function: we don't need exclusive access any more
@@ -551,7 +556,9 @@ writeRequest(const void* output, size_t size,
             clientName(), pasynUser->errorMessage);
         return false;
     }
-    // continues with handleRequest() or handleTimeout()
+    // continues with:
+    //    handleRequest() -> writeHandler() -> lockCallback()
+    // or handleTimeout() -> writeCallback(StreamIoTimeout)
     return true;
 }
 
@@ -573,7 +580,7 @@ writeHandler()
     {
         error("%s: pasynOctet->flush() failed: %s\n",
                 clientName(), pasynUser->errorMessage);
-        writeCallback(ioFault);
+        writeCallback(StreamIoFault);
         return;
     }
     status = pasynOctet->writeRaw(pvtOctet, pasynUser,
@@ -592,25 +599,27 @@ writeHandler()
                     error("%s writeHandler: "
                         "pasynManager->queueRequest() failed: %s\n",
                         clientName(), pasynUser->errorMessage);
-                    writeCallback(ioFault);
+                    writeCallback(StreamIoFault);
                 }
-                // continues with handleRequest() or handleTimeout()
+                // continues with:
+                //    handleRequest() -> writeHandler() -> writeCallback()
+                // or handleTimeout() -> writeCallback(StreamIoTimeout)
                 return;
             }
-            writeCallback(ioSuccess);
+            writeCallback(StreamIoSuccess);
             return;
         case asynTimeout:
-            writeCallback(ioTimeout);
+            writeCallback(StreamIoTimeout);
             return;
         case asynOverflow:
-            error("%s: asynOverflow: %s\n",
+            error("%s: asynOverflow in write: %s\n",
                 clientName(), pasynUser->errorMessage);
-            writeCallback(ioFault);
+            writeCallback(StreamIoFault);
             return;
         case asynError:
-            error("%s: asynError: %s\n",
+            error("%s: asynError in write: %s\n",
                 clientName(), pasynUser->errorMessage);
-            writeCallback(ioFault);
+            writeCallback(StreamIoFault);
             return;
     }
 }
@@ -643,13 +652,15 @@ readRequest(unsigned long replyTimeout_ms, unsigned long readTimeout_ms,
     }
     status = pasynManager->queueRequest(pasynUser,
         priority(), queueTimeout);
-    if (status != asynSuccess)
+    if (status != asynSuccess && !async)
     {
         error("%s readRequest: pasynManager->queueRequest() failed: %s\n",
             clientName(), pasynUser->errorMessage);
         return false;
     }
-    // continues with handleRequest() or handleTimeout()
+    // continues with:
+    //    handleRequest() -> readHandler() -> readCallback()
+    // or handleTimeout() -> readCallback(StreamIoTimeout)
     return true;
 }
 
@@ -662,27 +673,53 @@ readHandler()
         clientName(), eoslen, StreamBuffer(eos, eoslen).expand()());
 #endif
 
-    while (eoslen >= 0)
+    size_t deveoslen = eoslen;
+    const char* deveos = eos;
+    if (eos) do // eos == NULL means: don't change eos
     {
+        // device (e.g. GPIB) might not accept full eos length
         if (pasynOctet->setInputEos(pvtOctet, pasynUser,
-            eos, eoslen) == asynSuccess) break;
-        eos++; eoslen--;
-        if (eoslen < 0)
+            deveos, deveoslen) == asynSuccess)
+        {
+#ifndef NO_TEMPORARY
+            debug("AsynDriverInterface::readHandler(%s) "
+                "input EOS set to %s\n",
+                clientName(),
+                StreamBuffer(deveos, deveoslen).expand()());
+#endif
+            break;
+        }
+        deveos++; deveoslen--;
+        if (!deveoslen)
         {
             error("%s: warning: pasynOctet->setInputEos() failed: %s\n",
                 clientName(), pasynUser->errorMessage);
         }
-    }
+    } while (deveoslen);
 
     bool async = (ioAction == AsyncRead);
-    long maxlen = expectedLength > 0 ?
-        expectedLength : inputBuffer.capacity()-1;
-    char* buffer = inputBuffer.clear().reserve(maxlen);
-    int bytesToRead = 1;
+    int bytesToRead = peeksize;
+    long buffersize;
+
+    if (expectedLength > 0)
+    {
+        buffersize = expectedLength;
+        if (peeksize > 1)
+        {
+            /* we can't peek, try to read whole message */
+            bytesToRead = expectedLength;
+        }
+    }
+    else
+    {
+        buffersize = inputBuffer.capacity()-1;
+    }
+    char* buffer = inputBuffer.clear().reserve(buffersize);
+
     pasynUser->timeout = async ? 0.0 : replyTimeout;
     ioAction = Read;
     bool waitForReply = true;
-    size_t received;
+    int received;
     int eomReason;
     asynStatus status;
     long readMore;
@@ -691,26 +728,53 @@ readHandler()
     {
         readMore = 0;
         received = 0;
+        eomReason = 0;
         debug("AsynDriverInterface::readHandler(%s): "
                 "read(..., bytesToRead=%d, ...) timeout=%f seconds\n",
                 clientName(), bytesToRead, pasynUser->timeout);
         status = pasynOctet->read(pvtOctet, pasynUser,
-            buffer, bytesToRead, &received, &eomReason);
-
-#ifndef NO_TEMPORARY
-        debug("AsynDriverInterface::readHandler(%s): "
-                "received %d of %d bytes \"%s\" status=%d eomReason=%d\n",
-            clientName(), received, bytesToRead,
-            StreamBuffer(buffer, received).expand()(),
-            status, eomReason);
-#endif
+            buffer, bytesToRead, (size_t*)&received, &eomReason);
+        // pasynOctet->read() has already cut off terminator.
 
         switch (status)
         {
             case asynSuccess:
+#ifndef NO_TEMPORARY
+                debug("AsynDriverInterface::readHandler(%s): "
+                        "received %d of %d bytes \"%s\" "
+                        "eomReason=%s\n",
+                    clientName(), received, bytesToRead,
+                    StreamBuffer(buffer, received).expand()(),
+                    eomReasonStr[eomReason&0x7]);
+#endif
+                // asynOctet->read() cuts off terminator, but:
+                // If terminator was longer than the device (e.g. GPIB) can
+                // handle, only the last part is cut. If that part matches
+                // but the whole terminator does not, it is falsely cut.
+                // So what to do?
+                // Restore complete terminator and leave it to StreamCore to
+                // find out if this was really the end of the input.
+                // Warning: received can be < 0 if message was read in parts
+                // and a multi-byte terminator was partially read with last
+                // call.
+
+                if (deveoslen < eoslen && (eomReason & ASYN_EOM_EOS))
+                {
+                    size_t i;
+                    for (i = 0; i < deveoslen; i++, received++)
+                    {
+                        if (received >= 0) buffer[received] = deveos[i];
+                        // It is safe to add to buffer here, because
+                        // the terminator was already there before
+                        // asynOctet->read() had cut it.
+                        // Just take care of received < 0
+                    }
+                    eomReason &= ~ASYN_EOM_EOS;
+                }
+
                 readMore = readCallback(
                     eomReason & (ASYN_EOM_END|ASYN_EOM_EOS) ?
-                    ioEnd : ioSuccess,
+                    StreamIoEnd : StreamIoSuccess,
                     buffer, received);
                 break;
             case asynTimeout:
@@ -730,22 +794,39 @@ readHandler()
                     debug("AsynDriverInterface::readHandler(%s): "
                         "no reply\n",
                         clientName());
-                    readMore = readCallback(ioNoReply);
+                    readMore = readCallback(StreamIoNoReply);
                     break;
                 }
                 // read timeout
-                readMore = readCallback(ioTimeout, buffer, received);
+#ifndef NO_TEMPORARY
+                debug("AsynDriverInterface::readHandler(%s): "
+                        "timeout after %d of %d bytes \"%s\"\n",
+                    clientName(), received, bytesToRead,
+                    StreamBuffer(buffer, received).expand()());
+#endif
+                readMore = readCallback(StreamIoTimeout, buffer, received);
                 break;
             case asynOverflow:
-                // deliver whatever we have
-                error("%s: asynOverflow: %s\n",
+                if (bytesToRead == 1)
+                {
+                    // device does not support peeking
+                    // try to read whole message next time
+                    inputBuffer.clear().reserve(100);
+                } else {
+                    // buffer was still too small
+                    // try larger buffer next time
+                    inputBuffer.clear().reserve(inputBuffer.capacity()*2);
+                }
+                peeksize = inputBuffer.capacity();
+                // deliver whatever we could save
+                error("%s: asynOverflow in read: %s\n",
                     clientName(), pasynUser->errorMessage);
-                readCallback(ioFault, buffer, received);
+                readCallback(StreamIoFault, buffer, received);
                 break;
             case asynError:
-                error("%s: asynError: %s\n",
+                error("%s: asynError in read: %s\n",
                     clientName(), pasynUser->errorMessage);
-                readCallback(ioFault, buffer, received);
+                readCallback(StreamIoFault, buffer, received);
                 break;
         }
         if (!readMore) break;
@@ -766,38 +847,80 @@ readHandler()
 }
 
 void intrCallbackOctet(void* /*pvt*/, asynUser *pasynUser,
-    char *data, size_t numchars, int /*eomReason*/)
+    char *data, size_t numchars, int eomReason)
 {
-    int wasQueued;
+    // we must be very careful not to block in this function
+    // we must not call cancelRequest from here!
+
     AsynDriverInterface* interface =
         static_cast<AsynDriverInterface*>(pasynUser->userPvt);
     if (interface->ioAction == AsyncRead ||
         interface->ioAction == AsyncReadMore)
     {
     // cancel possible readTimeout or poll timer
+        interface->ioAction = AsyncReadCancelled;
         interface->cancelTimer();
-    // cancel possible read poll
-        pasynManager->cancelRequest(interface->pasynUser, &wasQueued);
-        interface->asynReadHandler(data, numchars);
+
+    // deliver data
+        interface->asynReadHandler(data, numchars, eomReason);
     }
 }
 
 // get asynchronous input
 void AsynDriverInterface::
-asynReadHandler(char *buffer, size_t received)
+asynReadHandler(const char *buffer, size_t received, int eomReason)
 {
 #ifndef NO_TEMPORARY
     debug("AsynDriverInterface::asynReadHandler(%s, buffer=\"%s\", "
-            "received=%d)\n",
+            "received=%d eomReason=0x%x=%s)\n",
         clientName(), StreamBuffer(buffer, received).expand()(),
-        received);
+        received, eomReason, eomReasonStr[eomReason&0x7]);
 #endif
-
     long readMore = 1;
     if (received)
     {
-        // process what we got and look if we need more data
-        readMore = readCallback(ioSuccess, buffer, received);
+        if (eomReason & ASYN_EOM_EOS)
+        {
+            // Terminator was cut off.
+            // We must restore the terminator because the "real" terminator
+            // might be longer than what the octet driver supports.
+            // 
+            char deveos[16]; // I guess that is sufficient
+            int deveoslen;
+            asynStatus status;
+            status = pasynOctet->getInputEos(pvtOctet,
+                pasynUser, deveos, sizeof(deveos)-1, &deveoslen);
+            if (status == asynSuccess)
+            {
+                // We can't just add the terminator to buffer, because
+                // we don't own that piece of memory.
+                // First process received data with cut-off terminator
+                readCallback(
+                    StreamIoSuccess,
+                    buffer, received);
+                // Then add terminator
+                readMore = readCallback(
+                    eomReason & ASYN_EOM_END ?
+                    StreamIoEnd : StreamIoSuccess,
+                    deveos, deveoslen);
+            }
+            else
+            {
+                // Got no terminator from driver
+                readMore = readCallback(
+                    eomReason & ASYN_EOM_END ?
+                    StreamIoEnd : StreamIoSuccess,
+                    buffer, received);
+            }
+        }
+        else
+        {
+            // No terminator was cut off
+            readMore = readCallback(
+                eomReason & ASYN_EOM_END ?
+                StreamIoEnd : StreamIoSuccess,
+                buffer, received);
+        }
     }
     if (readMore)
     {
@@ -821,7 +944,7 @@ acceptEvent(unsigned long mask, unsigned long replytimeout_ms)
     {
         // handle early events
         receivedEvent = 0;
-        eventCallback(ioSuccess);
+        eventCallback(StreamIoSuccess);
         return true;
     }
     eventMask = mask;
@@ -841,7 +964,7 @@ void intrCallbackInt32(void* /*pvt*/, asynUser *pasynUser, epicsInt32 data)
         if (data & interface->eventMask)
         {
             interface->eventMask = 0;
-            interface->eventCallback(AsynDriverInterface::ioSuccess);
+            interface->eventCallback(StreamIoSuccess);
         }
         return;
     }
@@ -861,7 +984,7 @@ void intrCallbackUInt32(void* /*pvt*/, asynUser *pasynUser,
         if (data & interface->eventMask)
         {
             interface->eventMask = 0;
-            interface->eventCallback(AsynDriverInterface::ioSuccess);
+            interface->eventCallback(StreamIoSuccess);
         }
         return;
     }
@@ -873,17 +996,18 @@ void AsynDriverInterface::
 timerExpired()
 {
     int autoconnect, connected;
-    debug("AsynDriverInterface::expire(%s)\n", clientName());
+    debug("AsynDriverInterface::timerExpired(%s) for %s\n",
+        clientName(), ioActionStr[ioAction]);
     switch (ioAction)
     {
         case ReceiveEvent:
             // timeout while waiting for event
             ioAction = None;
-            eventCallback(ioTimeout);
+            eventCallback(StreamIoTimeout);
             return;
         case AsyncReadMore:
             // timeout after reading some async data
-            readCallback(ioTimeout);
+            readCallback(StreamIoTimeout);
             ioAction = AsyncRead;
             startTimer(replyTimeout);
             return;
@@ -900,13 +1024,22 @@ timerExpired()
             }
             else
             {
+                // queue for read poll
                 pasynManager->queueRequest(pasynUser,
                     asynQueuePriorityLow, replyTimeout);
-                // continues with handleRequest() or handleTimeout()
+                // continues with:
+                //    handleRequest() -> readHandler() -> readCallback()
+                // or handleTimeout() -> readCallback(StreamIoTimeout)
             }
             return;
+        case AsyncReadCancelled:
+            // already got input but couldn't cancel timer quick enough
+            return;
+        case Read:
+            // No idea why this happens
+            return;
         default:
-            error("INTERNAL ERROR (%s): expire() unexpected ioAction %s\n",
+            error("INTERNAL ERROR (%s): timerExpired() unexpected ioAction %s\n",
                 clientName(), ioActionStr[ioAction]);
             return;
     }
@@ -943,7 +1076,9 @@ connectRequest(unsigned long connecttimeout_ms)
             clientName(), pasynUser->errorMessage);
         return false;
     }
-    // continues with handleRequest() or handleTimeout()
+    // continues with:
+    //    handleRequest() -> connectHandler() -> connectCallback()
+    // or handleTimeout() -> connectCallback(StreamIoTimeout)
     return true;
 }
 
@@ -956,10 +1091,10 @@ connectHandler()
     {
         error("%s connectRequest: pasynCommon->connect() failed: %s\n",
             clientName(), pasynUser->errorMessage);
-        connectCallback(ioFault);
+        connectCallback(StreamIoFault);
         return;
     }
-    connectCallback(ioSuccess);
+    connectCallback(StreamIoSuccess);
 }
 
 bool AsynDriverInterface::
@@ -975,7 +1110,10 @@ disconnect()
             clientName(), pasynUser->errorMessage);
         return false;
     }
-    // continues with handleRequest() or handleTimeout()
+    // continues with:
+    //    handleRequest() -> disconnectHandler()
+    // or handleTimeout()
+    // (does not expect callback)
     return true;
 }
 
@@ -1022,10 +1160,11 @@ void handleRequest(asynUser* pasynUser)
             interface->writeHandler();
             break;
         case AsyncRead: // polled async input
-            interface->readHandler();
-            break;
+        case AsyncReadMore:
         case Read:      // sync input
             interface->readHandler();
+            break;
+        case AsyncReadCancelled: // already got input, ignore request
             break;
         case Connect:
             interface->connectHandler();
@@ -1049,19 +1188,24 @@ void handleTimeout(asynUser* pasynUser)
     switch (interface->ioAction)
     {
         case Lock:
-            interface->lockCallback(AsynDriverInterface::ioTimeout);
+            interface->lockCallback(StreamIoTimeout);
             break;
         case Write:
-            interface->writeCallback(AsynDriverInterface::ioTimeout);
+            interface->writeCallback(StreamIoTimeout);
             break;
         case Read:
-            interface->readCallback(AsynDriverInterface::ioFault, NULL, 0);
+            interface->readCallback(StreamIoFault, NULL, 0);
+            break;
+        case AsyncReadMore:
+            interface->readCallback(StreamIoTimeout, NULL, 0);
             break;
         case AsyncRead: // async poll failed, try later
             interface->startTimer(interface->replyTimeout);
             break;
+        case AsyncReadCancelled: // already got input, ignore timeout
+            break;
         case Connect:
-            interface->connectCallback(AsynDriverInterface::ioTimeout);
+            interface->connectCallback(StreamIoTimeout);
             break;
         case Disconnect:
             // not interested in callback

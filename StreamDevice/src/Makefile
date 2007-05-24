@@ -43,6 +43,12 @@ LIB_LIBS += asyn
 BUSSES += AsynDriver
 endif
 
+ifdef T_A
+ifndef BUSSES
+$(error No bus interface defined! Didn't you set ASYN in your RELEASE file?)
+endif
+endif
+
 ifeq ($(LOADABLE_MODULE),YES)
 SRCS += $(LIBRARY_DEFAULT)_registerRecordDeviceDriver.cpp
 endif 

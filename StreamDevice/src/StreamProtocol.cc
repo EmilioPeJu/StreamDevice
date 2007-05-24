@@ -25,6 +25,10 @@
 #include "StreamFormatConverter.h"
 #include "StreamError.h"
 
+const char* StreamFormatTypeStr[] = {
+    "none", "long", "enum", "double", "string", "pseudo"
+};
+
 class StreamProtocolParser::Protocol::Variable
 {
     friend class Protocol;
@@ -629,16 +633,6 @@ parseValue(StreamBuffer& buffer, bool lazy)
 // tools (static member functions)
 
 const char* StreamProtocolParser::
-formatTypeStr(int type)
-{
-    const char* str [] = {"none", "long", "double", "string", "pseudo"};
-    static char illegal[20];
-    if (type <= pseudo_format) return str[type];
-    sprintf(illegal, "illegal %d", type);
-    return illegal;
-}
-
-const char* StreamProtocolParser::
 printString(StreamBuffer& buffer, const char* s)
 {
     while (*s)
@@ -1181,10 +1175,10 @@ compileString(StreamBuffer& buffer, const char*& source,
                     buffer.append(9);
                     break;
                 case 'n':
-                    buffer.append(lf);
+                    buffer.append('\n');
                     break;
                 case 'r':
-                    buffer.append(cr);
+                    buffer.append('\r');
                     break;
                 case 'e':
                     buffer.append(esc).append(esc);
@@ -1354,9 +1348,9 @@ compileString(StreamBuffer& buffer, const char*& source,
             {"bs",   8   }, 
             {"ht",   9   }, 
             {"tab",  9   }, 
-            {"lf",   lf  }, 
-            {"nl",   lf  }, 
-            {"cr",   cr  }, 
+            {"lf",   '\n'  }, 
+            {"nl",   '\n'  }, 
+            {"cr",   '\r'  }, 
             {"esc",  esc }, 
             {"del",  0x7f}
         };
@@ -1618,7 +1612,7 @@ compileFormat(StreamBuffer& buffer, const char*& formatstr,
     buffer.append(infoString);
 
     debug("StreamProtocolParser::Protocol::compileFormat: format.type=%s, infolen=%d\n",
-        formatTypeStr(streamFormat.type), streamFormat.infolen);
+        StreamFormatTypeStr[streamFormat.type], streamFormat.infolen);
     formatstr = source; // move pointer after parsed format
     return true;
 }
