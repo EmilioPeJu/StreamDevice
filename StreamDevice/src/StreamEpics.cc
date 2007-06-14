@@ -263,7 +263,7 @@ epicsExportRegistrar(streamRegistrar);
 
 // driver support ////////////////////////////////////////////////////////
 
-struct {
+struct stream_drvsup {
     long number;
     long (*report)(int);
     DRVSUPFUN init;
@@ -1002,6 +1002,7 @@ matchValue(const StreamFormat& format, const void* fieldaddress)
     double dval;
     char* buffer;
     int status;
+    const char* putfunc;
     
     if (fieldaddress)
     {
@@ -1052,15 +1053,37 @@ matchValue(const StreamFormat& format, const void* fieldaddress)
             consumedInput += consumed;
         }
 noMoreElements:
-        if (!nord) return false;
-        if (pdbaddr->precord == record)
+        if (!nord)
+        {
+            // scan error: set other record to alarm status
+            if (pdbaddr->precord != record)
+            {
+                recGblSetSevr(pdbaddr->precord, CALC_ALARM, INVALID_ALARM);
+                if (!INIT_RUN)
+                {
+                    // process other record to send alarm monitor
+                    dbProcess(pdbaddr->precord);
+                }
+            }
+            return false;
+        }
+        if (pdbaddr->precord == record || INIT_RUN)
         {
             // write into own record, thus don't process it
+            // in @init we must not process other record
             debug("Stream::matchValue(%s): dbPut(%s.%s,...)\n",
                 name(),
                 pdbaddr->precord->name,
                 ((dbFldDes*)pdbaddr->pfldDes)->name);
+            putfunc = "dbPut";
             status = dbPut(pdbaddr, dbfMapping[format.type], fieldBuffer(), nord);
+            if (INIT_RUN && pdbaddr->precord != record)
+            {
+                // clean error status of other record in @init
+                pdbaddr->precord->udf = false;
+                pdbaddr->precord->sevr = NO_ALARM;
+                pdbaddr->precord->stat = NO_ALARM;
+            }
         }
         else
         {
@@ -1069,12 +1092,11 @@ noMoreElements:
                 name(),
                 pdbaddr->precord->name,
                 ((dbFldDes*)pdbaddr->pfldDes)->name);
+            putfunc = "dbPutField";
             status = dbPutField(pdbaddr, dbfMapping[format.type], fieldBuffer(), nord);
         }
         if (status != 0)
         {
-            const char* putfunc = pdbaddr->precord == record ? "dbPut" : "dbPutField";
-            
             flags &= ~ScanTried;
             switch (format.type)
             {

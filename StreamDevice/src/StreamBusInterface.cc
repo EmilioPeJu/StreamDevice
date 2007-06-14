@@ -34,18 +34,15 @@ StreamBusInterfaceRegistrarBase(const char* name) : name(name)
     *pr = this;
 }
 
-StreamBusInterface::
-StreamBusInterface(Client* client) :
-    client(client), eos(NULL), eoslen(0)
+StreamBusInterfaceRegistrarBase::
+~StreamBusInterfaceRegistrarBase()
 {
 }
 
-bool StreamBusInterface::
-setEos(const char* _eos, size_t _eoslen)
+StreamBusInterface::
+StreamBusInterface(Client* client) :
+    client(client)
 {
-    eos = _eos;
-    eoslen = _eoslen;
-    return true;
 }
 
 bool StreamBusInterface::
@@ -110,7 +107,12 @@ readRequest(unsigned long, unsigned long, long, bool)
 }
 
 void StreamBusInterface::
-cancelAll()
+finish()
+{
+}
+
+StreamBusInterface::Client::
+~Client()
 {
 }
 

@@ -14,7 +14,7 @@ proc createTerm {sock} {
     grid rowconfigure .$sock 0 -weight 1
     grid columnconfigure .$sock 0 -weight 1
     grid .$sock.t .$sock.v -sticky nsew
-    bind .$sock.t <Destroy> "close $sock"
+    bind .$sock.t <Destroy> "close $sock; unset socket(.$sock.t)"
     bind .$sock.t <F1> "%W delete 0.1 end"
     set socket(.$sock.t) $sock
     focus .$sock.t
@@ -35,6 +35,11 @@ proc sendReply {sock text} {
     puts -nonewline $sock $text
 }
 
+proc checkNum {n} {
+    if {[string is integer $n] && $n >= 0} {return $n}
+    return -code error "argument $n must be a positive number"
+}
+
 proc receiveHandler {sock} {
     set a [read $sock]
     if [eof $sock] {
@@ -44,9 +49,65 @@ proc receiveHandler {sock} {
     .$sock.t mark set insert end
     .$sock.t insert end $a output
     .$sock.t see end
-    if {[string range $a 0 4] == "echo "} {
-        sendReply $sock [string range $a 5 end]
+    if [catch {
+        switch -- [lindex $a 0] {
+            "disconnect" {
+                destroy .$sock
+            }
+            "echo" {
+                sendReply $sock [string range $a 5 end]
+            }
+            "longmsg" {
+                set length [checkNum [lindex $a 1]]
+                sendReply $sock "[string range x[string repeat 0123456789abcdefghijklmnopqrstuvwxyz [expr $length / 36 + 1]] 1 $length]\n"
+            }
+            "wait" {
+                set wait [checkNum [lindex $a 1]]
+                after $wait [list sendReply $sock "Done\n"]
+            }
+            "start" {
+                set wait [checkNum [lindex $a 1]]
+                set ::counter 0
+                after $wait sendAsync $wait [list [lindex $a 2]]
+                sendReply $sock "Started\n"
+            }
+            "stop" {
+                set ::counter -1
+                sendReply $sock "Stopped\n"
+            }
+            "set" {
+                set ::values([lindex $a 1]) [lrange $a 2 end]
+                sendReply $sock "Ok\n"
+            }
+            "get" {
+                if [info exists ::values([lindex $a 1])] {
+                    sendReply $sock "[lindex $a 1] $::values([lindex $a 1])\n"
+                } else {
+                    sendReply $sock "ERROR: [lindex $a 1] not found\n"
+                }
+            }
+            "help" {
+                sendReply $sock "help             this text\n"
+                sendReply $sock "echo string      reply string\n"
+                sendReply $sock "wait msec        reply Done after some time\n"
+                sendReply $sock "start msec       start sending messages priodically\n"
+                sendReply $sock "stop             stop sending messages\n"
+                sendReply $sock "set key value    set a value\n"
+                sendReply $sock "get key          reply value\n"
+                sendReply $sock "disconnect       close connection\n"
+            }
+        }
+    } msg] {
+        sendReply $sock "ERROR: $msg\n"
     }
+}
+
+proc sendAsync {wait message} {
+    if {$::counter < 0} return
+    foreach term [array names ::socket] {
+        sendReply $::socket($term) "Message number [incr ::counter] $message\n";
+    }
+    after $wait sendAsync $wait [list $message]
 }
 
 if {[info proc tkTextInsert] != ""} {

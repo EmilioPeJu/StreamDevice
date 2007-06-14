@@ -242,6 +242,8 @@ compile(StreamProtocolParser::Protocol* protocol)
     writeTimeout = 100;
     maxInput = 0;
     pollPeriod = 1000;
+    inTerminatorDefined = false;
+    outTerminatorDefined = false;
     
     unsigned short ignoreExtraInput = false;
     if (!protocol->getEnumVariable("extrainput", ignoreExtraInput,
@@ -261,10 +263,10 @@ compile(StreamProtocolParser::Protocol* protocol)
     {
         return false;
     }
-    if (!(protocol->getStringVariable("terminator", inTerminator) &&
-        protocol->getStringVariable("terminator", outTerminator) &&
-        protocol->getStringVariable("interminator", inTerminator) &&
-        protocol->getStringVariable("outterminator", outTerminator) &&
+    if (!(protocol->getStringVariable("terminator", inTerminator, &inTerminatorDefined) &&
+        protocol->getStringVariable("terminator", outTerminator, &outTerminatorDefined) &&
+        protocol->getStringVariable("interminator", inTerminator, &inTerminatorDefined) &&
+        protocol->getStringVariable("outterminator", outTerminator, &outTerminatorDefined) &&
         protocol->getStringVariable("separator", separator)))
     {
         return false;
@@ -425,7 +427,6 @@ startProtocol(StartMode startMode)
     }
     commandIndex = (startMode == StartInit) ? onInit() : commands();
     runningHandler = Success;
-    busSetEos(inTerminator(), inTerminator.length());
     protocolStartHook();
     return evalCommand();
 }
@@ -456,6 +457,9 @@ finishProtocol(ProtocolResult status)
         char* handler;
         switch (status)
         {
+            case Success:
+                handler = NULL;
+                break;
             case WriteTimeout:
                 handler = onWriteTimeout();
                 break;
@@ -482,13 +486,9 @@ finishProtocol(ProtocolResult status)
                     break;
                 }
                 break;
-            case Abort:
-                // cancel anything running
-                busCancelAll();
-            case Fault:
+            default:
                 // get rid of all the rubbish whe might have collected
                 inputBuffer.clear();
-            default:
                 handler = NULL;
         }
         if (handler)
@@ -517,6 +517,7 @@ finishProtocol(ProtocolResult status)
         busUnlock();
         flags &= ~BusOwner;
     }
+    busFinish();
     protocolFinishHook(status);
 }
 
@@ -806,6 +807,21 @@ writeCallback(StreamIoStatus status)
     evalCommand();
 }
 
+const char* StreamCore::
+getOutTerminator(size_t& length)
+{
+    if (outTerminatorDefined)
+    {
+        length = outTerminator.length();
+        return outTerminator();
+    }
+    else
+    {
+        length = 0;
+        return NULL;
+    }
+}
+
 // Handle 'in' command
 
 bool StreamCore::
@@ -815,7 +831,7 @@ evalIn()
     long expectedInput;
 
     expectedInput = maxInput;
-    if (inputBuffer && unparsedInput)
+    if (unparsedInput)
     {
         // handle early input
         debug("StreamCore::evalIn(%s): early input: %s\n",
@@ -905,7 +921,7 @@ readCallback(StreamIoStatus status,
             finishProtocol(ReplyTimeout);
             return 0;
         case StreamIoFault:
-            error("%s: I/O error from device\n", name());
+            error("%s: I/O error when reading from device\n", name());
             finishProtocol(Fault);
             return 0;
     }
@@ -988,10 +1004,16 @@ readCallback(StreamIoStatus status,
     }
 
     inputLine.set(inputBuffer(), end);
+    debug("StreamCore::readCallback(%s) input line: \"%s\"\n",
+        name(), inputLine.expand()());
     bool matches = matchInput();
     inputBuffer.remove(end + termlen);
-    if (inputBuffer) unparsedInput = true;
-
+    if (inputBuffer)
+    {
+        debug("StreamCore::readCallback(%s) unpared input left: \"%s\"\n",
+            name(), inputBuffer.expand()());
+        unparsedInput = true;
+    }
     if (!matches)
     {
         if (status == StreamIoTimeout)
@@ -1305,6 +1327,21 @@ scanValue(const StreamFormat& fmt, char* value, long maxlen)
 #endif
     flags |= GotValue;
     return consumed;
+}
+
+const char* StreamCore::
+getInTerminator(size_t& length)
+{
+    if (inTerminatorDefined)
+    {
+        length = inTerminator.length();
+        return inTerminator();
+    }
+    else
+    {
+        length = 0;
+        return NULL;
+    }
 }
 
 // Handle 'event' command

@@ -71,6 +71,7 @@ void acceptEvent(unsigned short mask, unsigned short timeout)
 ***************************************/
 
 enum Flags {
+    // 0x00FFFFFF reserved for StreamCore
     None = 0x0000,
     IgnoreExtraInput = 0x0001,
     InitRun = 0x0002,
@@ -147,6 +148,8 @@ protected:
     unsigned long readTimeout;
     unsigned long pollPeriod;
     unsigned long maxInput;
+    bool inTerminatorDefined;
+    bool outTerminatorDefined;
     StreamBuffer inTerminator;
     StreamBuffer outTerminator;
     StreamBuffer separator;
@@ -197,6 +200,8 @@ protected:
     void eventCallback(StreamIoStatus status);
     void execCallback(StreamIoStatus status);
     void connectCallback(StreamIoStatus status);
+    const char* getInTerminator(size_t& length);
+    const char* getOutTerminator(size_t& length);
 
 // virtual methods
     virtual void protocolStartHook() {}

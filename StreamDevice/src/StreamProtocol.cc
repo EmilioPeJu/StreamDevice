@@ -52,6 +52,12 @@ StreamProtocolParser* StreamProtocolParser::parsers = NULL;
 const char* StreamProtocolParser::path = ".";
 static const char* specialChars = " ,;{}=()$'\"+-*/";
 
+// Client destructor
+StreamProtocolParser::Client::
+~Client()
+{
+}
+
 // Private constructor
 StreamProtocolParser::
 StreamProtocolParser(FILE* file, const char* filename)
@@ -832,22 +838,6 @@ getVariable(const char* name)
     return NULL;
 }
 
-const StreamBuffer* StreamProtocolParser::Protocol::
-getValue(const char* varname)
-{
-    Variable* pV;
-
-    for (pV = variables; pV; pV = pV->next)
-    {
-        if (pV->name.equals(varname))
-        {
-            pV->used = true;
-            return &pV->value;
-        }
-    }
-    return NULL;
-}
-
 bool StreamProtocolParser::Protocol::
 getNumberVariable(const char* varname, unsigned long& value, unsigned long max)
 {
@@ -894,12 +884,14 @@ getEnumVariable(const char* varname, unsigned short& value, const char** enumstr
 }
 
 bool StreamProtocolParser::Protocol::
-getStringVariable(const char* varname, StreamBuffer& value)
+getStringVariable(const char* varname, StreamBuffer& value, bool* defined)
 {
-    const StreamBuffer* pvalue = getValue(varname);
-    if (!pvalue) return true;
-    value.clear();
+    const Variable* pvar = getVariable(varname);
+    if (!pvar) return true;
+    if (defined) *defined = true;
+    const StreamBuffer* pvalue = &pvar->value;
     const char* source = (*pvalue)();
+    value.clear();
     if (!compileString(value, source))
     {
         error("in string variable '%s' in protocol file '%s' line %d\n",
