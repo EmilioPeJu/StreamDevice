@@ -926,6 +926,9 @@ void intrCallbackOctet(void* /*pvt*/, asynUser *pasynUser,
     AsynDriverInterface* interface =
         static_cast<AsynDriverInterface*>(pasynUser->userPvt);
 
+    // If we are still initialising during iocInit, ignore the input
+    if (INIT_RUN) return;
+
 // Problems here:
 // 1. We get this message too when we are the poller.
 //    Thus we have to ignore what we got from polling.
