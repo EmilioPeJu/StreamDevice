@@ -463,6 +463,9 @@ static checksum checksumMap[] =
     {"nsum",    sum,              0xff,       0xff,       1}, // 0x23
     {"negsum",  sum,              0xff,       0xff,       1}, // 0x23
     {"-sum",    sum,              0xff,       0xff,       1}, // 0x23
+    {"nsum16",	sum,              0xffff,     0xffff,     2}, // 0xFE23
+    {"negsum16",sum,              0xffff,     0xffff,     2}, // 0xFE23
+    {"-sum16",	sum,              0xffff,     0xffff,     2}, // 0xFE23
     {"notsum",  sum,              0x00,       0xff,       1}, // 0x22
     {"~sum",    sum,              0x00,       0xff,       1}, // 0x22
     {"xor",     xor8,             0x00,       0x00,       1}, // 0x31
