@@ -59,3 +59,8 @@ struct {
     devStreamGetIointInfo,
     devStreamRead
 };
+
+#ifdef ABOVE_EPICS_R3_13
+#include "epicsExport.h"
+epicsExportAddress(dset, devMbbiStream);
+#endif

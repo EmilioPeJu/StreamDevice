@@ -12,6 +12,8 @@
 ***************************************************************/
 
 #include <devStream.h>
+#include <sysLib.h>
+#include <taskLib.h>
 
 #include <stdlib.h>
 #include <string.h>

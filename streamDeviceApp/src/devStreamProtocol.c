@@ -163,7 +163,7 @@ int devStreamParseProtocol (protocol_t *protocol, FILE *file, char *protocolname
                                 result, protocolname);
                             break;
                         }
-                        if (*ptr != NULL)
+                        if (*ptr != '\0')
                         {
                             printErr ("extra input '%s' after WAIT\n", ptr);
                             break;
@@ -180,7 +180,7 @@ int devStreamParseProtocol (protocol_t *protocol, FILE *file, char *protocolname
                             printErr ("EVENT time %d out of range\n", result);
                             break;
                         }
-                        if (*ptr != NULL)
+                        if (*ptr != '\0')
                         {
                             printErr ("extra input '%s' after EVENT\n", ptr);
                             break;

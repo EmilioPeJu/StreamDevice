@@ -1,0 +1,20 @@
+# Makefile.Host
+TOP = ../../..
+include $(TOP)/config/CONFIG_APP
+#----------------------------------------
+#  ADD MACRO DEFINITIONS AFTER THIS LINE
+
+DBDINSTALL += stream.dbd
+
+# ca_DIR  = $(EPICS_BASE_LIB)
+# Db_DIR  = $(EPICS_BASE_LIB)
+# Com_DIR = $(EPICS_BASE_LIB)
+
+include $(TOP)/config/RULES.Host
+#----------------------------------------
+#  ADD RULES AFTER THIS LINE
+
+# ukp:  This is the hack that generates the dbd file from
+#               two source .dbd files (to be R3.13 backwards compatible).
+stream.dbd: ../streamDriver.dbd
+	$(CP) $^ $@

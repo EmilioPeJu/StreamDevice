@@ -7,6 +7,12 @@
 * (C) 1999 Dirk Zimoch (zimoch@delta.uni-dortmund.de)          *
 ***************************************************************/
 
+#include <dbCommon.h>
+#include <recGbl.h>
+#include <alarm.h>
+#include <dbFldTypes.h>
+#include <dbLock.h>
+#include <dbAccess.h>
 #include <devStreamProtocol.h>
 #include <callback.h>
 #include <dbScan.h>

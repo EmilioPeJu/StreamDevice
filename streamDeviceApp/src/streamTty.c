@@ -168,7 +168,7 @@ LOCAL long writePart (stream_t *stream, char* data, long length)
     written = write (busPrivate->fd, data, length);
 
     if (streamTtyDebug)
-        printf ("streamTty writePart %s: writen %d of %d bytes to tty\n", 
+        printf ("streamTty writePart %s: writen %d of %ld bytes to tty\n", 
                    stream->record->name, written, length);
 
     if (written == length)
@@ -259,3 +259,8 @@ LOCAL void timeout (stream_t *stream)
 }
 /*******************************************************************************
 */
+
+#ifdef ABOVE_EPICS_R3_13
+#include "epicsExport.h"
+epicsExportAddress(int, streamTty);
+#endif
