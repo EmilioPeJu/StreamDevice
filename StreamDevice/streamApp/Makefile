@@ -25,6 +25,17 @@ PROD_SRCS_vxWorks = -nil-
 
 PROD_LIBS = stream
 
+ifdef PCRE
+# With local PCRE package
+PROD_LIBS += pcre
+else
+ifneq ($(words $(PCRE_LIB) $(PCRE_INCLUDE)),0)
+# With system wide PCRE installation
+PROD_SYS_LIBS += pcre
+PROD_DEPLIB_DIRS += $(PCRE_LIB)
+endif
+endif
+
 ifdef ASYN
 # Which types of asyn busses do you have?
 ifneq ($(OS_CLASS), WIN32)

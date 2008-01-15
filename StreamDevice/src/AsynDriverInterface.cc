@@ -186,7 +186,7 @@ class AsynDriverInterface : StreamBusInterface
     bool supportsEvent();
     bool supportsAsyncRead();
     bool connectRequest(unsigned long connecttimeout_ms);
-    bool disconnect();
+    bool disconnectRequest();
     void finish();
 
 #ifdef EPICS_3_14
@@ -497,6 +497,8 @@ connectToAsynPort()
             clientName(), pasynUser->errorMessage);
         return false;
     }
+    debug("AsynDriverInterface::connectToAsynPort(%s) is %s connected\n",
+        clientName(), connected ? "already" : "not yet");
     if (!connected)
     {
         status = pasynCommon->connect(pvtCommon, pasynUser);
@@ -937,6 +939,7 @@ void intrCallbackOctet(void* /*pvt*/, asynUser *pasynUser,
 // 3. eomReason=ASYN_EOM_CNT when message was too long for
 //    internal buffer of asynDriver.
 
+    if (!interruptAccept) return; // too early to process records
     if (interface->ioAction == AsyncRead ||
         interface->ioAction == AsyncReadMore)
     {
@@ -1184,6 +1187,9 @@ connectRequest(unsigned long connecttimeout_ms)
     double queueTimeout = connecttimeout_ms*0.001;
     asynStatus status;
     ioAction = Connect;
+    
+    debug("AsynDriverInterface::connectRequest %s\n",
+        clientName());
     status = pasynManager->queueRequest(pasynUser,
         asynQueuePriorityConnect, queueTimeout);
     if (status != asynSuccess)
@@ -1201,49 +1207,51 @@ connectRequest(unsigned long connecttimeout_ms)
 void AsynDriverInterface::
 connectHandler()
 {
-    asynStatus status;
-    status = pasynCommon->connect(pvtCommon, pasynUser);
-    if (status != asynSuccess)
-    {
-        error("%s connectRequest: pasynCommon->connect() failed: %s\n",
-            clientName(), pasynUser->errorMessage);
-        connectCallback(StreamIoFault);
-        return;
-    }
-    connectCallback(StreamIoSuccess);
+    connectCallback(connectToAsynPort() ? StreamIoSuccess : StreamIoFault);
 }
 
 bool AsynDriverInterface::
-disconnect()
+disconnectRequest()
 {
     asynStatus status;
     ioAction = Disconnect;
+    
+    debug("AsynDriverInterface::disconnectRequest %s\n",
+        clientName());
     status = pasynManager->queueRequest(pasynUser,
         asynQueuePriorityConnect, 0.0);
     if (status != asynSuccess)
     {
-        error("%s disconnect: pasynManager->queueRequest() failed: %s\n",
+        error("%s disconnectRequest: pasynManager->queueRequest() failed: %s\n",
             clientName(), pasynUser->errorMessage);
         return false;
     }
     // continues with:
     //    handleRequest() -> disconnectHandler()
-    // or handleTimeout()
-    // (does not expect callback)
     return true;
 }
 
 void AsynDriverInterface::
 disconnectHandler()
 {
+    int connected;
     asynStatus status;
-    status = pasynCommon->disconnect(pvtCommon, pasynUser);
-    if (status != asynSuccess)
+
+    pasynManager->isConnected(pasynUser, &connected);
+    debug("AsynDriverInterface::disconnectHandler %s is %s disconnected\n",
+        clientName(), !connected ? "already" : "not yet");
+    if (connected)
     {
-        error("%s connectRequest: pasynCommon->disconnect() failed: %s\n",
-            clientName(), pasynUser->errorMessage);
-        return;
+        status = pasynCommon->disconnect(pvtCommon, pasynUser);
+        if (status != asynSuccess)
+        {
+            error("%s connectRequest: pasynCommon->disconnect() failed: %s\n",
+                clientName(), pasynUser->errorMessage);
+            disconnectCallback(StreamIoFault);
+            return;
+        }
     }
+    disconnectCallback(StreamIoSuccess);
 }
 
 void AsynDriverInterface::
@@ -1315,7 +1323,9 @@ void handleTimeout(asynUser* pasynUser)
             interface->connectCallback(StreamIoTimeout);
             break;
         case Disconnect:
-            // not interested in callback
+            error("AsynDriverInterface %s: disconnect timeout\n",
+                interface->clientName());
+            // should not happen because of infinite timeout
             break;
         // No AsyncRead here because we don't use timeout when polling
         default:
