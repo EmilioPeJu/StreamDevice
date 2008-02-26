@@ -18,7 +18,7 @@
 *                                                              *
 ***************************************************************/
 
-#include <devStream.h>
+#include "devStream.h"
 #include <aiRecord.h>
 #include <epicsExport.h>
 
@@ -74,7 +74,8 @@ static long initRecord (dbCommon *record)
 {
     aiRecord *ai = (aiRecord *) record;
 
-    return streamInitRecord (record, &ai->inp, readData, writeData);
+    return streamInitRecord (record, &ai->inp, readData, writeData) == ERROR ?
+        ERROR : OK;
 }
 
 struct {

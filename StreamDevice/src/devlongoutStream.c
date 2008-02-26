@@ -19,7 +19,7 @@
 *                                                              *
 ***************************************************************/
 
-#include <devStream.h>
+#include "devStream.h"
 #include <longoutRecord.h>
 #include <epicsExport.h>
 
@@ -49,7 +49,8 @@ static long initRecord (dbCommon *record)
 {
     longoutRecord *lo = (longoutRecord *) record;
 
-    return streamInitRecord (record, &lo->out, readData, writeData);
+    return streamInitRecord (record, &lo->out, readData, writeData) == ERROR ?
+        ERROR : OK;
 }
 
 struct {
