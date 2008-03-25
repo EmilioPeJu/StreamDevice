@@ -616,6 +616,7 @@ formatOutput()
     char command;
     const char* fieldName = NULL;
     const char* formatstring;
+    int formatstringlen;
     while ((command = *commandIndex++) != StreamProtocolParser::eos)
     {
         switch (command)
@@ -625,7 +626,7 @@ formatOutput()
                 debug("StreamCore::formatOutput(%s): StreamProtocolParser::format_field\n",
                     name());
                 // code layout:
-                // field <StreamProtocolParser::eos> addrlen AddressStructure formatstring <StreamProtocolParser::eos> StreamFormat [info]
+                // field <eos> addrlen AddressStructure formatstring <eos> StreamFormat [info]
                 fieldName = commandIndex;
                 commandIndex += strlen(commandIndex)+1;
                 unsigned short addrlen = extract<unsigned short>(commandIndex);
@@ -635,14 +636,23 @@ formatOutput()
             case StreamProtocolParser::format:
             {
                 // code layout:
-                // formatstring <StreamProtocolParser::eos> StreamFormat [info]
+                // formatstring <eos> StreamFormat [info]
                 formatstring = commandIndex;
-                while (*commandIndex++); // jump after <StreamProtocolParser::eos>
+                // jump after <eos>
+                while (*commandIndex)
+                {
+                    if (*commandIndex == esc) commandIndex++;
+                    commandIndex++;
+                }
+                formatstringlen = commandIndex-formatstring;
+                commandIndex++;
                 StreamFormat fmt = extract<StreamFormat>(commandIndex);
                 fmt.info = commandIndex; // point to info string
                 commandIndex += fmt.infolen;
+#ifndef NO_TEMPORARY
                 debug("StreamCore::formatOutput(%s): format = %%%s\n",
-                    name(), formatstring);
+                    name(), StreamBuffer(formatstring, formatstringlen).expand()());
+#endif
                 if (fmt.type == pseudo_format)
                 {
                     if (!StreamFormatConverter::find(fmt.conv)->
@@ -657,12 +667,13 @@ formatOutput()
                 flags &= ~Separator;
                 if (!formatValue(fmt, fieldAddress ? fieldAddress() : NULL))
                 {
+                    StreamBuffer formatstr(formatstring, formatstringlen);
                     if (fieldName)
                         error("%s: Cannot format field '%s' with '%%%s'\n",
-                            name(), fieldName, formatstring);
+                            name(), fieldName, formatstr.expand()());
                     else
                         error("%s: Cannot format value with '%%%s'\n",
-                            name(), formatstring);
+                            name(), formatstr.expand()());
                     return false;
                 }
                 fieldAddress.clear();
