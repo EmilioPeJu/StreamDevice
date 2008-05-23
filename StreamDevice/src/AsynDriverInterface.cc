@@ -765,7 +765,7 @@ readHandler()
     {
         // In AsyncRead mode just poll
         // and read as much as possible
-        pasynUser->timeout = readTimeout;
+        pasynUser->timeout = 0.0;
         bytesToRead = buffersize;
     }
     else
