@@ -458,12 +458,22 @@ connectToBus(const char* busname, int addr)
 bool AsynDriverInterface::
 lockRequest(unsigned long lockTimeout_ms)
 {
+    int connected;
+    asynStatus status;
+    
     debug("AsynDriverInterface::lockRequest(%s, %ld msec)\n",
         clientName(), lockTimeout_ms);
-    asynStatus status;
     lockTimeout = lockTimeout_ms ? lockTimeout_ms*0.001 : -1.0;
     ioAction = Lock;
-    status = pasynManager->queueRequest(pasynUser, priority(),
+    status = pasynManager->isConnected(pasynUser, &connected);
+    if (status != asynSuccess)
+    {
+        error("%s: pasynManager->isConnected() failed: %s\n",
+            clientName(), pasynUser->errorMessage);
+        return false;
+    }
+    status = pasynManager->queueRequest(pasynUser,
+        connected ? priority() : asynQueuePriorityConnect,
         lockTimeout);
     if (status != asynSuccess)
     {
@@ -507,6 +517,12 @@ connectToAsynPort()
             return false;
         }
     }
+//  We probably should set REN=1 prior to sending but this
+//  seems to hang up the device every other time.
+//     if (pasynGpib)
+//     {
+//         pasynGpib->ren(pvtGpib, pasynUser, 1);
+//     }
     return true;
 }
 
@@ -782,7 +798,7 @@ readHandler()
         switch (status)
         {
             case asynSuccess:
-                if (ioAction == AsyncRead || ioAction == AsyncReadMore)
+                if (ioAction == AsyncRead)
                 {
 #ifndef NO_TEMPORARY
                     debug("AsynDriverInterface::readHandler(%s): "
@@ -793,7 +809,7 @@ readHandler()
                         eomReasonStr[eomReason&0x7]);
 #endif
                     // ignore what we got from here.
-                    // input was already handled by asynReadHandler()
+                    // input was already handeled by asynReadHandler()
                     // read until no more input is available
                     readMore = -1;
                     break;
@@ -924,9 +940,6 @@ void intrCallbackOctet(void* /*pvt*/, asynUser *pasynUser,
 {
     AsynDriverInterface* interface =
         static_cast<AsynDriverInterface*>(pasynUser->userPvt);
-
-    // If we are still initialising during iocInit, ignore the input
-    if (INIT_RUN) return;
 
 // Problems here:
 // 1. We get this message too when we are the poller.
@@ -1258,6 +1271,12 @@ finish()
         clientName());
     cancelTimer();
     ioAction = None;
+//     if (pasynGpib)
+//     {
+//         // Release GPIB device the the end of the protocol
+//         // to re-enable local buttons.
+//         pasynGpib->ren(pvtGpib, pasynUser, 0);
+//     }
     debug("AsynDriverInterface::finish(%s) done\n",
         clientName());
 }
@@ -1268,6 +1287,8 @@ void handleRequest(asynUser* pasynUser)
 {
     AsynDriverInterface* interface =
         static_cast<AsynDriverInterface*>(pasynUser->userPvt);
+    debug("AsynDriverInterface::handleRequest(%s)\n",
+        interface->clientName());
     switch (interface->ioAction)
     {
         case None:
@@ -1302,6 +1323,8 @@ void handleTimeout(asynUser* pasynUser)
 {
     AsynDriverInterface* interface =
         static_cast<AsynDriverInterface*>(pasynUser->userPvt);
+    debug("AsynDriverInterface::handleTimeout(%s)\n",
+        interface->clientName());
     switch (interface->ioAction)
     {
         case Lock:
