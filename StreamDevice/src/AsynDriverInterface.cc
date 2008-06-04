@@ -798,7 +798,7 @@ readHandler()
         switch (status)
         {
             case asynSuccess:
-                if (ioAction == AsyncRead)
+                if (ioAction == AsyncRead || ioAction == AsyncReadMore)
                 {
 #ifndef NO_TEMPORARY
                     debug("AsynDriverInterface::readHandler(%s): "
@@ -809,7 +809,7 @@ readHandler()
                         eomReasonStr[eomReason&0x7]);
 #endif
                     // ignore what we got from here.
-                    // input was already handeled by asynReadHandler()
+                    // input was already handled by asynReadHandler()
                     // read until no more input is available
                     readMore = -1;
                     break;
