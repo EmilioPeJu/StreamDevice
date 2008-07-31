@@ -41,6 +41,7 @@ extern "C" {
 
 #include <semLib.h>
 #include <wdLib.h>
+#include <taskLib.h>
 
 extern DBBASE *pdbbase;
 
@@ -52,6 +53,7 @@ extern DBBASE *pdbbase;
 #include <epicsMutex.h>
 #include <epicsEvent.h>
 #include <epicsTime.h>
+#include <epicsThread.h>
 #include <registryFunction.h>
 #include <iocsh.h>
 
@@ -76,10 +78,12 @@ epicsShareFunc int epicsShareAPI iocshCmd(const char *command);
 enum MoreFlags {
     // 0x00FFFFFF used by StreamCore
     InDestructor  = 0x0100000,
-    ValueReceived = 0x0200000
+    ValueReceived = 0x0200000,
+    Aborted       = 0x0400000
 };
 
 extern "C" void streamExecuteCommand(CALLBACK *pcallback);
+extern "C" void streamRecordProcessCallback(CALLBACK *pcallback);
 extern "C" long streamReload(char* recordname);
 
 class Stream : protected StreamCore
@@ -108,6 +112,7 @@ class Stream : protected StreamCore
     long currentValueLength;
     IOSCANPVT ioscanpvt;
     CALLBACK commandCallback;
+    CALLBACK processCallback;
 
 
 #ifdef EPICS_3_14
@@ -118,7 +123,7 @@ class Stream : protected StreamCore
 #endif
 
 // StreamCore methods
-    // void protocolStartHook(); // Nothing to do here?
+    void protocolStartHook();
     void protocolFinishHook(ProtocolResult);
     void startTimer(unsigned long timeout);
     bool getFieldAddress(const char* fieldname,
@@ -131,6 +136,7 @@ class Stream : protected StreamCore
     void releaseMutex();
     bool execute();
     friend void streamExecuteCommand(CALLBACK *pcallback);
+    friend void streamRecordProcessCallback(CALLBACK *pcallback);
 
 // Stream Epics methods
     long initRecord();
@@ -280,12 +286,15 @@ epicsExportAddress(drvet, stream);
 
 void streamEpicsPrintTimestamp(char* buffer, int size)
 {
+    int tlen;
     epicsTime tm = epicsTime::getCurrent();
-    tm.strftime(buffer, size, "%Y/%m/%d %H:%M:%S.%03f");
+    tlen = tm.strftime(buffer, size, "%Y/%m/%d %H:%M:%S.%03f");
+    sprintf(buffer+tlen, " %.*s", size-tlen-2, epicsThreadGetNameSelf());
 }
 #else
 void streamEpicsPrintTimestamp(char* buffer, int size)
 {
+    int tlen;
     char* c;
     TS_STAMP tm;
     tsLocalTime (&tm);
@@ -294,6 +303,8 @@ void streamEpicsPrintTimestamp(char* buffer, int size)
     if (c) {
         c[4] = 0;
     }
+    tlen = strlen(buffer);
+    sprintf(buffer+tlen, " %.*s", size-tlen-2, taskName(0));
 }
 #endif
 
@@ -525,6 +536,8 @@ Stream(dbCommon* _record, struct link *ioLink,
 #endif
     callbackSetCallback(streamExecuteCommand, &commandCallback);
     callbackSetUser(this, &commandCallback);
+    callbackSetCallback(streamRecordProcessCallback, &processCallback);
+    callbackSetUser(this, &processCallback);
     status = ERROR;
     convert = DO_NOT_CONVERT;
     ioscanpvt = NULL;
@@ -791,6 +804,12 @@ expire(CALLBACK *pcallback)
 // StreamCore virtual methods ////////////////////////////////////////////
 
 void Stream::
+protocolStartHook()
+{
+    flags &= ~Aborted;
+}
+
+void Stream::
 protocolFinishHook(ProtocolResult result)
 {
     switch (result)
@@ -824,6 +843,7 @@ protocolFinishHook(ProtocolResult result)
             status = CALC_ALARM;
             break;
         case Abort:
+            flags |= Aborted;
         case Fault:
             status = UDF_ALARM;
             if (record->pact || record->scan == SCAN_IO_EVENT)
@@ -845,6 +865,21 @@ protocolFinishHook(ProtocolResult result)
 #endif
         return;
     }
+    
+//     if (result != Abort && record->scan == SCAN_IO_EVENT)
+//     {
+//         // re-enable early input
+//         flags |= AcceptInput;
+//     }
+    
+    if (record->pact || record->scan == SCAN_IO_EVENT)
+    {
+        // process record in callback thread to break possible recursion
+        callbackSetPriority(priority(), &processCallback);
+        callbackRequest(&processCallback);
+    }
+    
+/*
     if (record->pact || record->scan == SCAN_IO_EVENT)
     {
         debug("Stream::protocolFinishHook(stream=%s,result=%d) "
@@ -867,6 +902,35 @@ protocolFinishHook(ProtocolResult result)
         {
             error("%s: Can't restart \"I/O Intr\" protocol\n",
                 name());
+        }
+    }
+*/
+}
+
+void streamRecordProcessCallback(CALLBACK *pcallback)
+{
+    Stream* pstream = static_cast<Stream*>(pcallback->user);
+    dbCommon* record = pstream->record;
+
+    // process record
+    // This will call streamReadWrite.
+    debug("streamRecordProcessCallback(%s) processing record\n",
+            pstream->name());
+    dbScanLock(record);
+    ((DEVSUPFUN)record->rset->process)(record);
+    dbScanUnlock(record);
+    debug("streamRecordProcessCallback(%s) processing record done\n",
+            pstream->name());
+    
+    if (record->scan == SCAN_IO_EVENT && !(pstream->flags & Aborted))
+    {
+        // restart protocol for next turn
+        debug("streamRecordProcessCallback(%s) restart async protocol\n",
+            pstream->name());
+        if (!pstream->startProtocol(Stream::StartAsync))
+        {
+            error("%s: Can't restart \"I/O Intr\" protocol\n",
+                pstream->name());
         }
     }
 }
@@ -1157,7 +1221,7 @@ noMoreElements:
 }
 
 #ifdef EPICS_3_14
-
+// Pass command to iocsh
 void streamExecuteCommand(CALLBACK *pcallback)
 {
     Stream* pstream = static_cast<Stream*>(pcallback->user);
@@ -1172,7 +1236,8 @@ void streamExecuteCommand(CALLBACK *pcallback)
     }
 }
 #else
-extern "C" int execute (const char *cmd);
+// Pass command to vxWorks shell
+extern "C" int execute(const char *cmd);
 
 void streamExecuteCommand(CALLBACK *pcallback)
 {
@@ -1180,11 +1245,11 @@ void streamExecuteCommand(CALLBACK *pcallback)
     
     if (execute(pstream->outputLine()) != OK)
     {
-        pstream->execCallback(StreamBusInterface::ioFault);
+        pstream->execCallback(StreamIoFault);
     }
     else
     {
-        pstream->execCallback(StreamBusInterface::ioSuccess);
+        pstream->execCallback(StreamIoSuccess);
     }
 }
 #endif

@@ -786,7 +786,7 @@ readHandler()
         
         status = pasynOctet->read(pvtOctet, pasynUser,
             buffer, bytesToRead, (size_t*)&received, &eomReason);
-        if (ioAction != AsyncRead || status != asynTimeout)
+        if (ioAction == Read || status != asynTimeout)
         {
             debug("AsynDriverInterface::readHandler(%s): "
                 "read(..., bytesToRead=%d, ...) [timeout=%f seconds] = %s\n",
@@ -798,7 +798,8 @@ readHandler()
         switch (status)
         {
             case asynSuccess:
-                if (ioAction == AsyncRead || ioAction == AsyncReadMore)
+                if (ioAction == AsyncRead || ioAction == AsyncReadMore || 
+                    ioAction == None)
                 {
 #ifndef NO_TEMPORARY
                     debug("AsynDriverInterface::readHandler(%s): "
@@ -950,6 +951,8 @@ void intrCallbackOctet(void* /*pvt*/, asynUser *pasynUser,
 //    internal buffer of asynDriver.
 
     if (!interruptAccept) return; // too early to process records
+    debug("AsynDriverInterface::intrCallbackOctet(%s) ioAction = %s\n",
+        interface->clientName(), ioActionStr[interface->ioAction]);
     if (interface->ioAction == AsyncRead ||
         interface->ioAction == AsyncReadMore)
     {
@@ -1287,8 +1290,8 @@ void handleRequest(asynUser* pasynUser)
 {
     AsynDriverInterface* interface =
         static_cast<AsynDriverInterface*>(pasynUser->userPvt);
-    debug("AsynDriverInterface::handleRequest(%s)\n",
-        interface->clientName());
+    debug("AsynDriverInterface::handleRequest(%s) %s\n",
+        interface->clientName(), ioActionStr[interface->ioAction]);
     switch (interface->ioAction)
     {
         case None:
