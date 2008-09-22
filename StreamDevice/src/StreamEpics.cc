@@ -321,7 +321,7 @@ report(int interest)
         printf("    %s\n", interface.name());
         ++interface;
     }
-    
+
     if (interest < 1) return OK;
     printf("  registered converters:\n");
     StreamFormatConverter* converter;
@@ -334,7 +334,7 @@ report(int interest)
             printf("    %%%c %s\n", c, converter->name());
         }
     }
-    
+
     Stream* pstream;
     printf("  connected records:\n");
     for (pstream = static_cast<Stream*>(first); pstream;
@@ -501,8 +501,8 @@ long streamScanSep(dbCommon* record)
 long streamScanfN(dbCommon* record, format_t *format,
     void* value, size_t maxStringSize)
 {
-    debug("streamScanfN(%s,format=%%%c,maxStringSize=%d)\n",
-        record->name, format->priv->conv, maxStringSize);
+    debug("streamScanfN(%s,format=%%%c,maxStringSize=%ld)\n",
+        record->name, format->priv->conv, (long)maxStringSize);
     Stream* pstream = (Stream*)record->dpvt;
     if (!pstream) return ERROR;
     if (!pstream->scan(format, value, maxStringSize))
@@ -574,14 +574,14 @@ initRecord()
     // scan link parameters: filename protocol busname addr busparam
     // It is safe to call this function again with different
     // link text or different protocol file.
-    
+
     char filename[80];
     char protocol[80];
     char busname[80];
     int addr = -1;
     char busparam[80];
     int n;
-    
+
     if (ioLink->type != INST_IO)
     {
         error("%s: Wrong link type %s\n", name(),
@@ -865,46 +865,20 @@ protocolFinishHook(ProtocolResult result)
 #endif
         return;
     }
-    
-//     if (result != Abort && record->scan == SCAN_IO_EVENT)
-//     {
-//         // re-enable early input
-//         flags |= AcceptInput;
-//     }
-    
+
+    if (result != Abort && record->scan == SCAN_IO_EVENT)
+    {
+        // re-enable early input
+        flags |= AcceptInput;
+    }
+
     if (record->pact || record->scan == SCAN_IO_EVENT)
     {
         // process record in callback thread to break possible recursion
         callbackSetPriority(priority(), &processCallback);
         callbackRequest(&processCallback);
     }
-    
-/*
-    if (record->pact || record->scan == SCAN_IO_EVENT)
-    {
-        debug("Stream::protocolFinishHook(stream=%s,result=%d) "
-            "processing record\n", name(), result);
-        // process record
-        // This will call streamReadWrite.
-        dbScanLock(record);
-        ((DEVSUPFUN)record->rset->process)(record);
-        dbScanUnlock(record);
 
-        debug("Stream::protocolFinishHook(stream=%s,result=%d) done\n",
-            name(), result);
-    }
-    if (result != Abort && record->scan == SCAN_IO_EVENT)
-    {
-        // restart protocol for next turn
-        debug("Stream::process(%s) restart async protocol\n",
-            name());
-        if (!startProtocol(StartAsync))
-        {
-            error("%s: Can't restart \"I/O Intr\" protocol\n",
-                name());
-        }
-    }
-*/
 }
 
 void streamRecordProcessCallback(CALLBACK *pcallback)
@@ -921,7 +895,7 @@ void streamRecordProcessCallback(CALLBACK *pcallback)
     dbScanUnlock(record);
     debug("streamRecordProcessCallback(%s) processing record done\n",
             pstream->name());
-    
+
     if (record->scan == SCAN_IO_EVENT && !(pstream->flags & Aborted))
     {
         // restart protocol for next turn
@@ -1067,7 +1041,7 @@ matchValue(const StreamFormat& format, const void* fieldaddress)
     char* buffer;
     int status;
     const char* putfunc;
-    
+
     if (fieldaddress)
     {
         // Format like "%([record.]field)..." has requested to put value
@@ -1225,7 +1199,7 @@ noMoreElements:
 void streamExecuteCommand(CALLBACK *pcallback)
 {
     Stream* pstream = static_cast<Stream*>(pcallback->user);
-    
+
     if (iocshCmd(pstream->outputLine()) != OK)
     {
         pstream->execCallback(StreamIoFault);
@@ -1242,7 +1216,7 @@ extern "C" int execute(const char *cmd);
 void streamExecuteCommand(CALLBACK *pcallback)
 {
     Stream* pstream = static_cast<Stream*>(pcallback->user);
-    
+
     if (execute(pstream->outputLine()) != OK)
     {
         pstream->execCallback(StreamIoFault);
