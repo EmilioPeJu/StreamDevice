@@ -21,14 +21,19 @@
 #include "StreamFormatConverter.h"
 #include "StreamError.h"
 
-#ifdef vxWorks
-#include "vxWorks.h"
+#if defined(__vxworks) || defined(vxWorks) 
+#include <vxWorks.h>
 #define __BYTE_ORDER _BYTE_ORDER 
 #define __LITTLE_ENDIAN _LITTLE_ENDIAN
 #define __BIG_ENDIAN _BIG_ENDIAN 
+#elif defined(_WIN32)
+// Assume that win32 is always little endian
+#define __LITTLE_ENDIAN 1234
+#define __BIG_ENDIAN 4321
+#define __BYTE_ORDER __LITTLE_ENDIAN
 #else
-// Let's hope all other architectures have endian.h
-#include "endian.h"
+// Let's hope all other architectures have sys/param.h
+#include <sys/param.h>
 #endif
 
 #ifndef __BYTE_ORDER
