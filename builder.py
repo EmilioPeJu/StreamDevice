@@ -17,7 +17,7 @@ streamDeviceVersion = 2
 
 class streamProtocol(Device):
     DbdFileList = ['stream']
-    LibFileList = ['pcre', 'stream']
+    LibFileList = ['stream']
 
 
     def __init__(self, port, protocol):
