@@ -1,0 +1,8 @@
+Terminator = "\r\n";
+
+readint { out "\$1?"; in "%d"; }
+writeint { out "\$1=%d"; in "OK"; }
+
+# these are I/O intr
+readA { in "%d %*d"; }
+readB { in "%*d %d"; }

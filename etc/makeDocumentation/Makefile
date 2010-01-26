@@ -8,13 +8,12 @@ DEBUG :=
 DOCDIR := $(TOP)/documentation/doxygen
 
 # add the documentation files to the install target
-install: $(DOCDIR)/build_instructions $(TOP)/documentation/index.html
+install: $(DOCDIR)
 
 # rule for documentation
-$(TOP)/documentation/index.html: config.src manual.src $(DOCDIR)/build_instructions
+$(DOCDIR): config.src manual.src #$(DOCDIR)/build_instructions
 	mkdir -p $(DOCDIR)
-	/dls_sw/work/common/python/documentation/src/documentation.py -o $(DOCDIR) config.src manual.src
-	cd $(TOP)/documentation; ln -s doxygen/index.html
+	dls-make-doxygen-documentation.py -o $(DOCDIR) config.src manual.src
 
 # rule for generating build instructions from example.xml file
 $(DOCDIR)/build_instructions: $(TOP)/etc/makeIocs/example.xml
@@ -23,4 +22,4 @@ $(DOCDIR)/build_instructions: $(TOP)/etc/makeIocs/example.xml
 
 # Remove entire documentation/doxygen dir on clean
 clean:
-	rm -rf $(DOCDIR) $(TOP)/documentation/index.html
+	rm -rf $(DOCDIR)
