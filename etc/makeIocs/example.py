@@ -38,6 +38,9 @@ def gen(var):
 
 gen("A")
 gen("B")
-        
+
+for ext in ("ao", "stringout", "bo", "longout"):
+    proto.__dict__[ext](P+ext, "reseed")
+                
 # write the IOC
 iocbuilder.WriteNamedIoc(options.iocpath, options.iocname, substitute_boot=True)

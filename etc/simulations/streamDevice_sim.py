@@ -17,14 +17,18 @@ class streamDevice(serial_device):
         serial_device.__init__(self)
         self.schedule(self.report,0.105)
         self.diagLevel = 2         
-        self.reporting = True
+        self.reporting = False
+        self.reseedDone = False
     
     def report(self): 
         # report on A, B
         if self.reporting:
             return "%s %s" %(self.vals["A"], self.vals["B"])
     
-    def reply(self,command):        
+    def reply(self,command):   
+        if command == "SYSTEM:RESEED":
+            self.reseedDone = True
+            return     
         if command.endswith("?"):
             # <var>? returns self.vals[<var>]
             var = command[:-1]

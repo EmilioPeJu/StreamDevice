@@ -22,7 +22,9 @@ class StreamDeviceTestSuite(TestSuite):
                 epicsDbFiles="db/example.db",
                 simDevices=[SimDevice('streamDevice',9001,rpc=True)])
         CaseNoReport(self)
-        CaseReport(self)
+#        CaseReport(self)
+        for ext in ("ao", "stringout", "bo", "longout"):
+            CaseReseed(ext, self)
         
 
 class StreamDeviceTestCase( TestCase ):
@@ -74,6 +76,17 @@ class CaseReport(StreamDeviceTestCase):
         self.simulation('streamDevice').reporting = True
         self.sleep(2)        
         self.wait_for_errors()
+
+class CaseReseed(StreamDeviceTestCase):
+    def __init__(self, ext, *args, **kwargs):
+        StreamDeviceTestCase.__init__(self, *args, **kwargs)
+        self.ext = ext
+        
+    def runTest(self):
+        self.simulation('streamDevice').reseedDone = False
+        self.putPv(P+self.ext+".PROC", 1)
+        self.sleep(1)
+        assert self.simulation('streamDevice').reseedDone == True
 
 if __name__ == "__main__":
     # Create and run the test sequence
