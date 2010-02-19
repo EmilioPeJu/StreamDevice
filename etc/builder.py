@@ -138,4 +138,4 @@ class AutoProtocol(ModuleBase):
                 cls.ModuleFile(os.path.join('data', file)),
                 module = cls.ModuleVersion)
             for file in cls.ProtocolFiles]
-        cls.__super.UseModule()
+        super(AutoProtocol, cls).UseModule()
