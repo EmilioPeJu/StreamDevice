@@ -4,7 +4,7 @@ include $(TOP)/configure/CONFIG_APP
 
 # To restrict the build to only some of the available target architectures,
 # redefine CROSS_COMPILER_TARGET_ARCHS
-#CROSS_COMPILER_TARGET_ARCHS = vxWorks-ppc604_long
+CROSS_COMPILER_TARGET_ARCHS = vxWorks-ppc604_long
 
 # To restrict the build to a list *without* the host arch, redefine BUILD_ARCHS
 # here, to included only those archs to build

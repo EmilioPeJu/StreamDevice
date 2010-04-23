@@ -47,11 +47,15 @@ streamApp_DBD += drvAsynIPPort.dbd
 #streamApp_DBD += drvNi1014.dbd
 streamApp_DBD += drvVxi11.dbd
 PROD_LIBS += asyn
+# This doesn't work on my cygwin system, but the next line does - Tim Mooney
+#PROD_SYS_LIBS_CYGWIN += rpc
+PROD_SYS_LIBS_cygwin32 += rpc
 endif
 
 ifneq ($(words $(CALC) $(SYNAPPS)), 0)
 # With synApps scalcout record
-streamApp_DBD += calc.dbd
+#streamApp_DBD += calc.dbd
+streamApp_DBD += calcSupport.dbd
 streamApp_DBD += streamSynApps.dbd
 PROD_LIBS += calc sscan
 PROD_LIBS_DEFAULT += streamSynApps
@@ -69,13 +73,13 @@ include $(TOP)/configure/RULES
 clean:: myclean
 
 myclean:
-	rm -f core* streamApp streamApp.exe* StreamDebug.log
+#	rm -f core* streamApp streamApp.exe* StreamDebug.log
 
 build: link
 
 link:
-	rm -f ../streamApp$(EXE)
-	ln -s O.$(EPICS_HOST_ARCH)/streamApp$(EXE) ../streamApp$(EXE)
+#	rm -f ../streamApp$(EXE)
+#	ln -s O.$(EPICS_HOST_ARCH)/streamApp$(EXE) ../streamApp$(EXE)
 
 endif
 
