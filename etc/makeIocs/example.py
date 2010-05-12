@@ -1,4 +1,4 @@
-#!/bin/env dls-python2.4
+#!/bin/env python2.6
 
 # setup the path
 from pkg_resources import require
