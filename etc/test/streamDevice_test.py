@@ -12,15 +12,17 @@ from cothread.catools import *
 from random import randrange as r
 
 P = "TESTSTREAM:"
+ip = 8100
+rpc = 9100
+debug = 10100
 
 class StreamDeviceTestSuite(TestSuite):
     def createTests(self):
-        Target( "simulation", self,
-                iocDirectory="iocs/example_sim",
-                iocBootCmd="bin/linux-x86/stexample.sh",
-                runIocInScreenUnderHudson=True,          
-                epicsDbFiles="db/example.db",
-                simDevices=[SimDevice('streamDevice',9001,rpc=True)])
+        Target( "simulation", self,[
+            ModuleEntity('streamDevice'),
+            IocEntity('ioc', directory='iocs/example_sim', bootCmd='bin/linux-x86/stexample.sh'),
+            SimulationEntity('sim', runCmd='data/streamDevice_sim.py -i %d -r %d -d %d'%(ip, rpc, debug), rpcPort=rpc),
+            EpicsDbEntity('db', directory='iocs/example_sim/db', fileName='example_expanded.db')])
         CaseNoReport(self)
 #        CaseReport(self)
         for ext in ("ao", "stringout", "bo", "longout"):
@@ -67,13 +69,13 @@ class StreamDeviceTestCase( TestCase ):
                         
 class CaseNoReport(StreamDeviceTestCase):
     def runTest(self):
-        self.simulation('streamDevice').reporting = False
+        self.simulation('sim').reporting = False
         self.sleep(2)
         self.wait_for_errors()
 
 class CaseReport(StreamDeviceTestCase):
     def runTest(self):
-        self.simulation('streamDevice').reporting = True
+        self.simulation('sim').reporting = True
         self.sleep(2)        
         self.wait_for_errors()
 
@@ -83,10 +85,10 @@ class CaseReseed(StreamDeviceTestCase):
         self.ext = ext
         
     def runTest(self):
-        self.simulation('streamDevice').reseedDone = False
+        self.simulation('sim').reseedDone = False
         self.putPv(P+self.ext+".PROC", 1)
         self.sleep(1)
-        assert self.simulation('streamDevice').reseedDone == True
+        assert self.simulation('sim').reseedDone == True
 
 if __name__ == "__main__":
     # Create and run the test sequence

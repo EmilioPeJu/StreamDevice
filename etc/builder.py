@@ -5,7 +5,7 @@ from iocbuilder.configure import Call_TargetOS
 from iocbuilder.iocwriter import IocWriter
 from iocbuilder.iocinit import quote_IOC_string, iocInit
 
-from asyn import AsynSerial
+from iocbuilder.modules.asyn import Asyn
 
 
 __all__ = [
@@ -21,6 +21,7 @@ streamDeviceVersion = 2
 class streamDevice(Device):
     LibFileList = ['pcre', 'stream']
     DbdFileList = ['stream']
+    Dependencies = (Asyn,)
     AutoInstantiate = True
 
 
@@ -63,7 +64,7 @@ class streamProtocol(Device):
 
 class ProtocolFile(Device):
     Dependencies = (streamDevice,)
-    InitialisationPhase = Device.FIRST    
+    InitialisationPhase = Device.FIRST
 
     # We'll need to post process the list of instances
     __ProtocolFiles = set()
@@ -114,7 +115,7 @@ class ProtocolFile(Device):
             protocol_dirs = ['$(%s)/data' % x for x in protocol_macronames]
             print 'strcpy(STREAM_PROTOCOL_DIR,"%s")' % protocol_dirs[0]
             for x in protocol_dirs[1:]:
-                print 'strcat(STREAM_PROTOCOL_DIR,":%s")' % x            
+                print 'strcat(STREAM_PROTOCOL_DIR,":%s")' % x
         else:
             protocol_dirs = [x.lower() for x in protocol_macronames]
             print 'n=sprintf(STREAM_PROTOCOL_DIR,"%%s/data",%s)' % \
@@ -124,7 +125,7 @@ class ProtocolFile(Device):
 
     def __str__(self):
         return self.ProtocolName
-        
+
 
 class AutoProtocol(ModuleBase):
     BaseClass = True

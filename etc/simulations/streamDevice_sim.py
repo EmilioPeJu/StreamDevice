@@ -6,7 +6,7 @@
 
 import sys
 sys.path.append("/dls_sw/work/common/python/serial_sim")
-from src import serial_device
+from src import serial_device, CreateSimulation
 
 class streamDevice(serial_device):
 
@@ -51,3 +51,7 @@ class streamDevice(serial_device):
             except:
                 # cannot convert to int
                 return "ERR003"
+
+if __name__=="__main__":
+    CreateSimulation(streamDevice)
+    raw_input()
