@@ -9,8 +9,8 @@ DIRS := $(DIRS) $(filter-out $(DIRS), configure)
 DIRS := $(DIRS) $(filter-out $(DIRS), $(wildcard pcre-*))
 DIRS := $(DIRS) $(filter-out $(DIRS), $(wildcard StreamDevice*))
 ifeq ($(EPICS_HOST_ARCH),linux-x86)
-	DIRS := $(DIRS) $(filter-out $(DIRS), $(wildcard etc))
+	#DIRS := $(DIRS) $(filter-out $(DIRS), $(wildcard etc))
 	# Comment out the following line to disable building of example iocs
-	DIRS := $(DIRS) $(filter-out $(DIRS), $(wildcard iocs))
+	#DIRS := $(DIRS) $(filter-out $(DIRS), $(wildcard iocs))
 endif	
 include $(TOP)/configure/RULES_TOP
