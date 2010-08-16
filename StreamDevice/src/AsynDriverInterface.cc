@@ -533,14 +533,9 @@ void AsynDriverInterface::
 lockHandler()
 {
     int connected;
-    asynStatus status;
     debug("AsynDriverInterface::lockHandler(%s)\n",
         clientName());
     pasynManager->blockProcessCallback(pasynUser, false);
-    status = pasynManager->lockPort(pasynUser);
-    if(status!=asynSuccess) {
-        debug("Failed locking port");
-    }
 
     connected = connectToAsynPort();
     lockCallback(connected ? StreamIoSuccess : StreamIoFault);
@@ -550,13 +545,8 @@ lockHandler()
 bool AsynDriverInterface::
 unlock()
 {
-    asynStatus unlockStatus;
     debug("AsynDriverInterface::unlock(%s)\n",
         clientName());
-    unlockStatus = pasynManager->unlockPort(pasynUser);
-    if (unlockStatus != asynSuccess) {
-        debug("Failed unlocking port");
-    }
     pasynManager->unblockProcessCallback(pasynUser, false);
     return true;
 }
