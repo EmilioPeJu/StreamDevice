@@ -14,9 +14,7 @@ SRCS += $(LIBRARY_DEFAULT)_registerRecordDeviceDriver.cpp
 endif 
 SRCS += $(SYNAPPS_RECORDS:%=dev%Stream.c)
 
-#LIB_LIBS += stream dbIoc registryIoc iocsh
-# In 3.14.10, libiocsh is no longer built
-LIB_LIBS += stream dbIoc registryIoc
+LIB_LIBS += stream $(EPICS_BASE_IOC_LIBS)
 
 include $(TOP)/configure/RULES
 

@@ -16,17 +16,25 @@ set records {
 
 set protocol {
     Terminator = LF;
-    test1 {out "%s";}
+    test1 {
+           out "Escaped \"double\" quotes";
+           out 'Escaped \'single\' quotes';
+           out "Single 'quotes' in double quotes";
+           out 'Double "quotes" in single quotes'; }
 }
 
 set startup {
+    var streamDebug 1
 }
 
 set debug 0
 
 startioc
 
-ioccmd {dbpf DZ:test1 "string 1"}
-assure "string 1\n"
+ioccmd {dbpf DZ:test1 "X"}
+assure "Escaped \"double\" quotes\n"
+assure "Escaped 'single' quotes\n"
+assure "Single 'quotes' in double quotes\n"
+assure "Double \"quotes\" in single quotes\n"
 
 finish

@@ -7,7 +7,7 @@ source streamtestlib.tcl
 # Send commands to the ioc shell with ioccmd
 
 set records {
-    record (stringout, "DZ:test1")
+    record (ao, "DZ:test1")
     {
         field (DTYP, "stream")
         field (OUT,  "@test.proto test1 device")
@@ -15,8 +15,7 @@ set records {
 }
 
 set protocol {
-    Terminator = LF;
-    test1 {out "%s";}
+    test1 {out 0x55 0x40 0x04 0x00 0x00 'z;' "%<sum>";}
 }
 
 set startup {
@@ -25,8 +24,7 @@ set startup {
 set debug 0
 
 startioc
-
-ioccmd {dbpf DZ:test1 "string 1"}
-assure "string 1\n"
+ioccmd {dbpf DZ:test1 "1"}
+assure "\x55\x40\x04\x00\x00z;\x4e"
 
 finish
