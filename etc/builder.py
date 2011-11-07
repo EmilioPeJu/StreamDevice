@@ -82,7 +82,7 @@ class ProtocolFile(Device):
         self.filename = protocol_file
         self.module = module
         if module is None or force_copy:
-            self.__ForceCopy = True
+            self.ForceCopy()
         # Pick up the protocol name from the file name.
         self.ProtocolName = os.path.basename(protocol_file)
 
