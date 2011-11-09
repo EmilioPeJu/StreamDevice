@@ -67,24 +67,23 @@ class ProtocolFile(Device):
     InitialisationPhase = Device.FIRST
 
     # We'll need to post process the list of instances
-    __ProtocolFiles = set()
-    __ForceCopy = False
+    __CopiedFiles = set()
+    __Modules = set()
 
-    @classmethod
-    def ForceCopy(cls):
-        cls.__ForceCopy = True
 
-    def __init__(self, protocol_file, force_copy=False, module=None):
+    def __init__(self, protocol_file, module=None):
         self.__super.__init__()
-        # Add to the set of protocol files and remember whether copying was
-        # demanded.
-        self.__ProtocolFiles.add(self)
+
         self.filename = protocol_file
         self.module = module
-        if module is None or force_copy:
-            self.__ForceCopy = True
         # Pick up the protocol name from the file name.
         self.ProtocolName = os.path.basename(protocol_file)
+
+        if module is None:
+            # This file will need to be copied to the IOC data directory
+            self.__CopiedFiles.add(IocDataFile(protocol_file))
+        else:
+            self.__Modules.add(module.MacroName())
 
     def InitialiseOnce(self):
         # Figure out whether we need to copy the files.  If any protocol
@@ -92,36 +91,29 @@ class ProtocolFile(Device):
         # protocol directory then copying is needed.  (We could specify a
         # protocol path instead, but this isn't implemented yet.)
         print '# Configure StreamDevice paths'
-        if self.__ForceCopy:
-            for file in self.__ProtocolFiles:
-                # Grab a copy of each data file.
-                IocDataFile(file.filename)
-            print 'epicsEnvSet "STREAM_PROTOCOL_PATH", %s' % \
+        Call_TargetOS(self, 'ProtocolPath')
+
+    def ProtocolPath_linux(self):
+        protocol_dirs = ['$(%s)/data' % x for x in self.__Modules]
+        if self.__CopiedFiles:
+            protocol_dirs.insert(0, IocDataFile.GetDataPath())
+        print 'epicsEnvSet "STREAM_PROTOCOL_PATH", %s' % \
+            quote_IOC_string(':'.join(protocol_dirs))
+
+    def ProtocolPath_vxWorks(self):
+        print 'STREAM_PROTOCOL_PATH = malloc(%d)' % \
+            (IocWriter.IOCmaxLineLength_vxWorks * (1 + len(self.__Modules)))
+        sep = False
+        if self.__CopiedFiles:
+            print 'sprintf(STREAM_PROTOCOL_PATH,%s)' % \
                 quote_IOC_string(IocDataFile.GetDataPath())
-        else:
-            protocol_macronames = set(
-                [file.module.MacroName() for file in self.__ProtocolFiles])
-            Call_TargetOS(self, 'ProtocolPath', protocol_macronames)
-
-    def ProtocolPath_linux(self, protocol_macronames):
-        protocol_dirs = [ '$(%s)/data' % x for x in protocol_macronames ]
-        print 'epicsEnvSet "STREAM_PROTOCOL_PATH", "%s"' % \
-            ':'.join(protocol_dirs)
-
-    def ProtocolPath_vxWorks(self, protocol_macronames):
-        print 'STREAM_PROTOCOL_DIR = malloc(%d)' % \
-            (IocWriter.IOCmaxLineLength_vxWorks * len(protocol_macronames))
-        if iocInit.substitute_boot:
-            protocol_dirs = ['$(%s)/data' % x for x in protocol_macronames]
-            print 'strcpy(STREAM_PROTOCOL_DIR,"%s")' % protocol_dirs[0]
-            for x in protocol_dirs[1:]:
-                print 'strcat(STREAM_PROTOCOL_DIR,":%s")' % x
-        else:
-            protocol_dirs = [x.lower() for x in protocol_macronames]
-            print 'n=sprintf(STREAM_PROTOCOL_DIR,"%%s/data",%s)' % \
-                protocol_dirs[0]
-            for x in protocol_dirs[1:]:
-                print 'n+=sprintf(STREAM_PROTOCOL_DIR+n,":%%s/data",%s)' % x
+            sep = bool(self.__Modules)
+        for module in self.__Modules:
+            if sep:
+                print 'strcat(STREAM_PROTOCOL_PATH,":")'
+            print 'strcat(STREAM_PROTOCOL_PATH,getenv(%s))' % \
+                quote_IOC_string(module)
+            sep = True
 
     def __str__(self):
         return self.ProtocolName
