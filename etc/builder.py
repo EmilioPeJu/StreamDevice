@@ -101,11 +101,11 @@ class ProtocolFile(Device):
             quote_IOC_string(':'.join(protocol_dirs))
 
     def ProtocolPath_vxWorks(self):
-        print 'STREAM_PROTOCOL_PATH = malloc(%d)' % \
+        print 'STREAM_PROTOCOL_PATH = calloc(1, %d)' % \
             (IocWriter.IOCmaxLineLength_vxWorks * (1 + len(self.__Modules)))
         sep = False
         if self.__CopiedFiles:
-            print 'sprintf(STREAM_PROTOCOL_PATH,%s)' % \
+            print 'strcat(STREAM_PROTOCOL_PATH,%s)' % \
                 quote_IOC_string(IocDataFile.GetDataPath())
             sep = bool(self.__Modules)
         for module in self.__Modules:
