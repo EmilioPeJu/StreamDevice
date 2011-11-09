@@ -113,6 +113,7 @@ class ProtocolFile(Device):
                 print 'strcat(STREAM_PROTOCOL_PATH,":")'
             print 'strcat(STREAM_PROTOCOL_PATH,getenv(%s))' % \
                 quote_IOC_string(module)
+            print 'strcat(STREAM_PROTOCOL_PATH,"/data")'
             sep = True
 
     def __str__(self):
