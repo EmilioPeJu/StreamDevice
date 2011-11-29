@@ -97,8 +97,8 @@ class ProtocolFile(Device):
         protocol_dirs = ['$(%s)/data' % x for x in self.__Modules]
         if self.__CopiedFiles:
             protocol_dirs.insert(0, IocDataFile.GetDataPath())
-        print 'epicsEnvSet "STREAM_PROTOCOL_PATH", %s' % \
-            quote_IOC_string(':'.join(protocol_dirs))
+        print 'epicsEnvSet "STREAM_PROTOCOL_PATH", "%s"' % \
+            ':'.join(protocol_dirs)
 
     def ProtocolPath_vxWorks(self):
         print 'STREAM_PROTOCOL_PATH = calloc(1, %d)' % \
@@ -111,9 +111,12 @@ class ProtocolFile(Device):
         for module in self.__Modules:
             if sep:
                 print 'strcat(STREAM_PROTOCOL_PATH,":")'
-            print 'strcat(STREAM_PROTOCOL_PATH,getenv(%s))' % \
-                quote_IOC_string(module)
-            print 'strcat(STREAM_PROTOCOL_PATH,"/data")'
+            if iocInit.substitute_boot:
+                print 'strcat(STREAM_PROTOCOL_PATH,"$(%s)/data")' % module
+            else:
+                print 'strcat(STREAM_PROTOCOL_PATH,getenv(%s))' % \
+                    quote_IOC_string(module)
+                print 'strcat(STREAM_PROTOCOL_PATH,"/data")'
             sep = True
 
     def __str__(self):
