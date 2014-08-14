@@ -9,8 +9,8 @@
 # module defined in the RELEASE file is rebuilt.
 
 TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
-SUPPORT=/dls_sw/prod/R3.14.11/support
-WORK=/dls_sw/work/R3.14.11/support
+SUPPORT=/dls_sw/prod/R3.14.12.3/support
+WORK=/dls_sw/work/R3.14.12.3/support
 
 # If you don't want to install into $(TOP) then
 # define INSTALL_LOCATION_APP here
@@ -22,8 +22,8 @@ WORK=/dls_sw/work/R3.14.11/support
 PCRE=$(TOP)
 
 # EPICS_BASE usually appears last so other apps can override stuff:
-ASYN=		$(SUPPORT)/asyn/4-21
-EPICS_BASE=	/dls_sw/epics/R3.14.11/base
+ASYN=		$(SUPPORT)/asyn/4-22
+EPICS_BASE=	/dls_sw/epics/R3.14.12.3/base
 
 #Capfast users may need the following definitions
 #CAPFAST_TEMPLATES=
