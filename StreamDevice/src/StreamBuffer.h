@@ -29,7 +29,7 @@
 
 class StreamBuffer
 {
-    char local[64];
+    char local[128];
     long len;
     long cap;
     long offs;
