@@ -248,6 +248,26 @@ replace(long remstart, long remlen, const void* ins, long inslen)
 }
 
 StreamBuffer& StreamBuffer::
+print(const char* fmt, ...)
+{
+    va_list va;
+    ssize_t printed;
+    while (1)
+    {
+        va_start(va, fmt);
+        printed = vsnprintf(buffer+offs+len, cap-offs-len, fmt, va);
+        va_end(va);
+        if (printed > -1 && printed < (ssize_t)(cap-offs-len))
+        {
+            len += printed;
+            return *this;
+        }
+        if (printed > -1) grow(len+printed);
+        else grow(len);
+    }
+}
+
+StreamBuffer& StreamBuffer::
 printf(const char* fmt, ...)
 {
     va_list va;

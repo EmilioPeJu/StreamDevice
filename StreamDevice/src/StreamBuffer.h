@@ -189,6 +189,9 @@ public:
     StreamBuffer& insert(long pos, char c)
         {return replace(pos, 0, &c, 1);}
 
+    StreamBuffer& print(const char* fmt, ...)
+        __attribute__((__format__(__printf__,2,3)));
+
     StreamBuffer& printf(const char* fmt, ...)
         __attribute__ ((format(printf,2,3)));
 
