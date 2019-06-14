@@ -1,5 +1,5 @@
-terminator = CR LF;
-readtimeout = 1000;
+terminator = LF;
+readtimeout = 10;
 pollperiod = 10;
 replytimeout = 1000;
 command {
@@ -22,4 +22,7 @@ spybin {
     terminator = "";
     extraInput=ignore;
     in "%r";
+}
+checksum {
+    out "%s %0.1<\$1>";
 }

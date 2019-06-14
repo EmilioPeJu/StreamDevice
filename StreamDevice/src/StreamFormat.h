@@ -6,7 +6,7 @@
 *                                                              *
 * This header defines the format stucture used to interface    *
 * format converters and record interfaces to StreamDevice      *
-* Please refer to the HTML files in ../doc/ for a detailed     *
+* Please refer to the HTML files in ../docs/ for a detailed    *
 * documentation.                                               *
 *                                                              *
 * If you do any changes in this file, you are not allowed to   *
@@ -30,15 +30,17 @@ typedef enum {
     zero_flag    = 0x10,
     skip_flag    = 0x20,
     default_flag = 0x40,
-    compare_flag = 0x80
+    compare_flag = 0x80,
+    fix_width_flag = 0x100
 } StreamFormatFlag;
 
 typedef enum {
-    long_format   = 1,
-    enum_format   = 2,
-    double_format = 3,
-    string_format = 4,
-    pseudo_format = 5
+    unsigned_format = 1,
+    signed_format,
+    enum_format,
+    double_format,
+    string_format,
+    pseudo_format
 } StreamFormatType;
 
 extern const char* StreamFormatTypeStr[];
@@ -47,10 +49,10 @@ typedef struct StreamFormat
 {
     char conv;
     StreamFormatType type;
-    unsigned char flags;
-    short prec;
-    unsigned short width;
-    unsigned short infolen;
+    unsigned short flags;
+    long prec;
+    unsigned long width;
+    unsigned long infolen;
     const char* info;
 } StreamFormat;
 

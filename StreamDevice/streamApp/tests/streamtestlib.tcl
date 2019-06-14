@@ -41,7 +41,7 @@ proc receiveHandler {sock} {
 }
 
 proc startioc {} {
-    global debug records protocol startup port sock ioc testname env streamversion
+    global debug records protocol startup port sock ioc testname env streamversion asynversion
     set fd [open test.db w]
     puts $fd $records
     close $fd
@@ -52,12 +52,16 @@ proc startioc {} {
     
     if [info exists streamversion] {
         puts $fd "#!/usr/local/bin/iocsh"
+        if [info exists asynversion] {
+            puts $fd "require asyn,$asynversion"
+        }
         puts $fd "require stream,$streamversion"
     } else {
         puts $fd "#!../O.$env(EPICS_HOST_ARCH)/streamApp"
         puts $fd "dbLoadDatabase ../O.Common/streamApp.dbd"
         puts $fd "streamApp_registerRecordDeviceDriver"
     }
+    puts $fd "streamSetLogfile StreamDebug.log"
     puts $fd "epicsEnvSet STREAM_PROTOCOL_PATH ."
     puts $fd "drvAsynIPPortConfigure device localhost:$port"
     puts $fd "dbLoadRecords test.db"
@@ -74,7 +78,9 @@ proc startioc {} {
     }
     fconfigure $ioc -blocking yes -buffering none
     debugmsg "waiting to connect"
+    set timer [after 1000 {puts stderr "\033\[31;7mCannot start IOC.\033\[0m"; exit 1}]
     vwait sock
+    after cancel $timer
 }
 
 set lastcommand ""
@@ -87,6 +93,14 @@ proc ioccmd {command} {
     set line 0
     debugmsg "$command"
     puts $ioc $command
+}
+
+proc process {record} {
+    ioccmd "dbpf $record.PROC 1"
+}
+
+proc put {record value} {
+    ioccmd "dbpf $record \"$value\""
 }
 
 proc send {string} {
@@ -167,7 +181,7 @@ proc escape {string} {
             append result "\\r"
         } elseif {$n == 10} {
             append result "\\n"
-        } elseif {($n & 127) < 32} {
+        } elseif {$n < 32 || $n >= 127} {
             append result [format "<%02x>" $n]
         } else {
             append result $c
@@ -200,5 +214,9 @@ set inputlog [open "test.inputlog" w]
 # SLS style driver modules (optionally with version)
 if {[lindex $argv 0] == "-sls"} {
     set streamversion [lindex $argv 1]
+    set argv [lrange $argv 2 end]
+}
+if {[lindex $argv 0] == "-asyn"} {
+    set asynversion [lindex $argv 1]
     set argv [lrange $argv 2 end]
 }

@@ -1,15 +1,16 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-    "http://www.w3.org/TR/html4/loose.dtd">
-<html>
+<!DOCTYPE HTML>
+<html lang="en">
 <head>
 <title>StreamDevice: mbbo Records</title>
-<link rel="shortcut icon" href="sls_icon.ico">
-<link rel="stylesheet" type="text/css" href="stream.css">
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-<meta name="author" content="Dirk Zimoch">
+<meta charset="utf-8" />
+<link rel="shortcut icon" href="favicon.ico" />
+<link rel="stylesheet" type="text/css" href="stream.css" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="author" content="Dirk Zimoch" />
 </head>
 <body>
-<h1>StreamDevice: mbbo Records</h1>
+<iframe src="nav.html" id="navleft"></iframe>
+<h1>mbbo Records</h1>
 
 <h2>Normal Operation</h2>
 <p>
@@ -22,7 +23,7 @@ written or read value.
   <dd>
    Not allowed.
   </dd>
- <dt>LONG format (e.g. <code>%i</code>):</dt>
+ <dt>LONG <span class=new>or ENUM</span> format (e.g. <code>%i</code>):</dt>
   <dd>
    <dl>
     <dt>If any of <code>ZRVL</code> ... <code>FFVL</code> is set
@@ -32,24 +33,19 @@ written or read value.
       Note that the record calculates <code>RVAL</code> by choosing one of
       <code>ZRVL</code> ... <code>FFVL</code> depending on <code>VAL</code>
       and by shifting it left by <code>SHFT</code> bits.<br>
-      <u>Input:</u> <code>RBV=<i>x</i>&amp;MASK</code><br>
+      <u>Input:</u> <code>RBV=RVAL=<i>x</i>&amp;MASK</code><br>
       <code>MASK</code> is initialized to <code>NOBT</code> 1-bits shifted
       left by <code>SHFT</code>. If <code>MASK==0</code> (because
       <code>NOBT</code> was not set) it is ignored, i.e.
-      <code><i>x</i>=RVAL</code> and <code>RBV=<i>x</i></code>.
+      <code><i>x</i>=RVAL</code> and <code>RBV=RVAL=<i>x</i></code>.
      </dd>
     <dt>If none of <code>ZRVL</code> ... <code>FFVL</code> is set
         (all are <code>0</code>):</dt>
-     <dd>
-      <u>Output:</u> <code><i>x</i>=VAL</code><br>
-      <u>Input:</u> <code>VAL=<i>x</i></code><br>
+     <dd class=new>
+      <u>Output:</u> <code><i>x</i>=(VAL&lt;&lt;SHFT)&amp;MASK</code><br>
+      <u>Input:</u> <code>VAL=(RBV=(<i>x</i>&amp;MASK))&gt;&gt;SHFT</code><br>
      </dd>
     </dl>
-  </dd>
- <dt>ENUM format (e.g. <code>%{</code>):</dt>
-  <dd>
-   <u>Output:</u> <code><i>x</i>=VAL</code><br>
-   <u>Input:</u> <code>VAL=<i>x</i></code><br>
   </dd>
  <dt>STRING format (e.g. <code>%s</code>):</dt>
   <dd>
@@ -65,31 +61,34 @@ written or read value.
 <h2>Initialization</h2>
 <p>
  During <a href="processing.html#init">initialization</a>, the <code>@init</code> handler is executed, if
- present. In contrast to normal operation, LONG input is put to
- <code>RVAL</code> as well as to <code>RBV</code> and converted by the
- record.
+ present.
 </p>
 
-<hr>
-<p>
+<footer>
+<nav>
 <a href="aai.html">aai</a>
 <a href="aao.html">aao</a>
 <a href="ai.html">ai</a>
 <a href="ao.html">ao</a>
 <a href="bi.html">bi</a>
 <a href="bo.html">bo</a>
-<a href="mbbi.html">mbbi</a>
-<a href="mbbiDirect.html">mbbiDirect</a>
-<a href="mbboDirect.html">mbboDirect</a>
+<a href="calcout.html">calcout</a>
+<a href="int64in.html">int64in</a>
+<a href="int64out.html">int64out</a>
 <a href="longin.html">longin</a>
 <a href="longout.html">longout</a>
+<a href="lsi.html">lsi</a>
+<a href="lso.html">lso</a>
+<a href="mbbiDirect.html">mbbiDirect</a>
+<a href="mbboDirect.html">mbboDirect</a>
+<a href="mbbi.html">mbbi</a>
+<a href="mbbo.html">mbbo</a>
+<a href="scalcout.html">scalcout</a>
 <a href="stringin.html">stringin</a>
 <a href="stringout.html">stringout</a>
 <a href="waveform.html">waveform</a>
-<a href="calcout.html">calcout</a>
-<a href="scalcout.html">scalcout</a>
-</p>
-<p><small>Dirk Zimoch, 2005</small></p>
-<script src="stream.js" type="text/javascript"></script>
+</nav>
+Dirk Zimoch, 2018
+</footer>
 </body>
 </html>

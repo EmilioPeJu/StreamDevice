@@ -2,20 +2,28 @@ record (stringout, "$(P):cmd")
 {
     field (DTYP, "stream")
     field (OUT,  "@test.proto command terminal")
+    field (PRIO, "HIGH")
     field (VAL, "")
 }
 record (stringout, "$(P):info")
 {
     field (DTYP, "stream")
     field (OUT,  "@test.proto info terminal")
+    field (PRIO, "HIGH")
 }
 record (stringout, "$(P):request")
 {
     field (DTYP, "stream")
     field (OUT,  "@test.proto request($(P):reply.VAL) terminal")
+    field (PRIO, "HIGH")
 }
 record (stringin, "$(P):reply")
 {
+}
+record (stringout, "$(P):checksum")
+{
+    field (DTYP, "stream")
+    field (OUT,  "@test.proto checksum($(CHKSUM=sum)) terminal")
 }
 record (stringin, "$(P):spy")
 {
@@ -131,3 +139,4 @@ record (waveform, "$(P):spybin")
     field (NELM, "2000")
     field (SCAN, "I/O Intr")
 }
+

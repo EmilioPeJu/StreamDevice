@@ -4,7 +4,7 @@
 * (C) 2005 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
 *                                                              *
 * This is a buffer class used in StreamDevice for I/O.         *
-* Please refer to the HTML files in ../doc/ for a detailed     *
+* Please refer to the HTML files in ../docs/ for a detailed    *
 * documentation.                                               *
 *                                                              *
 * If you do any changes in this file, you are not allowed to   *
@@ -17,6 +17,11 @@
 *                                                              *
 ***************************************************************/
 
+// Make sure that vsnprintf is available
+#ifndef _BSD_SOURCE
+#define _BSD_SOURCE
+#endif
+
 #include "StreamBuffer.h"
 #include "StreamError.h"
 
@@ -24,21 +29,59 @@
 #include <stdarg.h>
 #include <stdlib.h>
 
-#if defined(__vxworks) || defined(vxWorks) || defined(_WIN32) || defined(__rtems__)
-// These systems have no vsnprintf
-#include <epicsStdio.h>
-#define vsnprintf epicsVsnprintf
-#endif
+#ifdef vxWorks
+#include <version.h>
+#ifndef _WRS_VXWORKS_MAJOR
+// VxWorks 5 has no vsnprintf
+// Implementation taken from EPICS 3.14
+
+#include <vxWorks.h>
+#include <fioLib.h>
+
+struct outStr_s {
+    char *str;
+    int free;
+};
+
+static STATUS outRoutine(char *buffer, int nchars, int outarg) {
+    struct outStr_s *poutStr = (struct outStr_s *) outarg;
+    int free = poutStr->free;
+    int len;
+
+    if (free < 1) { /*let fioFormatV continue to count length*/
+        return OK;
+    } else if (free > 1) {
+        len = min(free-1, nchars);
+        strncpy(poutStr->str, buffer, len);
+        poutStr->str += len;
+        poutStr->free -= len;
+    }
+    /*make sure final string is null terminated*/
+    *poutStr->str = 0;
+    return OK;
+}
+
+int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
+    struct outStr_s outStr;
+
+    outStr.str = str;
+    outStr.free = size;
+    return fioFormatV(format, ap, (FUNCPTR)outRoutine, (int)&outStr);
+}
+#endif // ! _WRS_VXWORKS_MAJOR
+#endif // vxWorks
+
+#define P PRINTF_SIZE_T_PREFIX
 
 void StreamBuffer::
-init(const void* s, long minsize)
+init(const void* s, ssize_t minsize)
 {
     len = 0;
     offs = 0;
     buffer = local;
     cap = sizeof(local);
     if (minsize < 0) minsize = 0;
-    if (minsize >= cap)
+    if ((size_t)minsize >= cap)
     {
         // use allocated buffer
         grow(minsize);
@@ -55,18 +98,18 @@ init(const void* s, long minsize)
 }
 
 // How the buffer looks like:
-// |----free-----|####used####|-------free-------|
+// |----free-----|####used####|--------00--------|
 ///|<--- offs -->|<-- len --->|<- cap-offs-len ->|
 // 0            offs      offs+len              cap
 //               |<-------------- minsize --------------->
 
 
 void StreamBuffer::
-grow(long minsize)
+grow(size_t minsize)
 {
     // make space for minsize + 1 (for termination) bytes
     char* newbuffer;
-    long newcap;
+    size_t newcap;
 #ifdef EXPLODE
     if (minsize > 1000000)
     {
@@ -117,12 +160,12 @@ grow(long minsize)
 }
 
 StreamBuffer& StreamBuffer::
-append(const void* s, long size)
+append(const void* s, ssize_t size)
 {
     if (size <= 0)
     {
         // append negative number of bytes? let's delete some
-        if (size < -len) size = -len;
+        if (size < -(ssize_t)len) size = -(ssize_t)len;
         memset (buffer+offs+len+size, 0, -size);
     }
     else
@@ -134,8 +177,8 @@ append(const void* s, long size)
     return *this;
 }
 
-long int StreamBuffer::
-find(const void* m, long size, long start) const
+ssize_t StreamBuffer::
+find(const void* m, size_t size, ssize_t start) const
 {
     if (start < 0)
     {
@@ -147,7 +190,7 @@ find(const void* m, long size, long start) const
     const char* s = static_cast<const char*>(m);
     char* b = buffer+offs;
     char* p = b+start;
-    long i;
+    size_t i;
     while ((p = static_cast<char*>(memchr(p, s[0], b-p+len-size+1))))
     {
         for (i = 1; i < size; i++)
@@ -161,7 +204,7 @@ next:   p++;
 }
 
 StreamBuffer& StreamBuffer::
-replace(long remstart, long remlen, const void* ins, long inslen)
+replace(ssize_t remstart, ssize_t remlen, const void* ins, ssize_t inslen)
 {
     if (remstart < 0)
     {
@@ -187,12 +230,12 @@ replace(long remstart, long remlen, const void* ins, long inslen)
         remlen += remstart;
         remstart = 0;
     }
-    if (remstart > len)
+    if ((size_t)remstart > len)
     {
         // remove begins after bufferend
         remstart = len;
     }
-    if (remlen >= len-remstart)
+    if ((size_t)remlen >= len-remstart)
     {
         // truncate remove after bufferend
         remlen = len-remstart;
@@ -205,12 +248,12 @@ replace(long remstart, long remlen, const void* ins, long inslen)
         return *this;
     }
     if (inslen < 0) inslen = 0;
-    long remend = remstart+remlen;
-    long newlen = len+inslen-remlen;
+    size_t remend = remstart+remlen;
+    size_t newlen = len+inslen-remlen;
     if (cap <= newlen)
     {
         // buffer too short
-        long newcap;
+        size_t newcap;
         for (newcap = sizeof(local)*2; newcap <= newlen; newcap *= 2);
         char* newbuffer = new char[newcap];
         memcpy(newbuffer, buffer+offs, remstart);
@@ -267,29 +310,9 @@ print(const char* fmt, ...)
     }
 }
 
-StreamBuffer& StreamBuffer::
-printf(const char* fmt, ...)
+StreamBuffer StreamBuffer::expand(ssize_t start, ssize_t length) const
 {
-    va_list va;
-    int printed;
-    while (1)
-    {
-        va_start(va, fmt);
-        printed = vsnprintf(buffer+offs+len, cap-offs-len, fmt, va);
-        va_end(va);
-        if (printed > -1 && printed < (int)(cap-offs-len))
-        {
-            len += printed;
-            return *this;
-        }
-        if (printed > -1) grow(len+printed);
-        else grow(len);
-    }
-}
-
-StreamBuffer StreamBuffer::expand(long start, long length) const
-{
-    long end;
+    size_t end;
     if (start < 0)
     {
         start += len;
@@ -306,22 +329,18 @@ StreamBuffer StreamBuffer::expand(long start, long length) const
     }
     end = start+length;
     if (end > len) end = len;
-    StreamBuffer result((end-start)*2);
+    StreamBuffer result;
     start += offs;
     end += offs;
-    long i;
+    size_t i;
     char c;
     for (i = start; i < end; i++)
     {
         c = buffer[i];
-        if ((c & 0x7f) < 0x20 || (c & 0x7f) == 0x7f)
-        {
-            result.printf("<%02x>", c & 0xff);
-        }
+        if (c < 0x20 || c >= 0x7f)
+            result.print("\033[7m<%02x>\033[27m", c & 0xff);
         else
-        {
             result.append(c);
-        }
     }
     return result;
 }
@@ -329,27 +348,20 @@ StreamBuffer StreamBuffer::expand(long start, long length) const
 StreamBuffer StreamBuffer::
 dump() const
 {
-    StreamBuffer result(256+cap*5);
-    result.append("\033[0m");
-    long i;
-    result.printf("%ld,%ld,%ld:\033[37m", offs, len, cap);
+    StreamBuffer result;
+    size_t i;
+    result.print("%" P "d,%" P "d,%" P "d:", offs, len, cap);
+    if (offs) result.print("\033[47m");
+    char c;
     for (i = 0; i < cap; i++)
     {
-        if (i == offs) result.append("\033[34m[\033[0m");
-        if ((buffer[i] & 0x7f) < 0x20 || (buffer[i] & 0x7f) == 0x7f)
-        {
-            if (i < offs || i >= offs+len)
-            result.printf(
-                "<%02x>", buffer[i] & 0xff);
-            else
-            result.printf(
-                "\033[34m<%02x>\033[37m", buffer[i] & 0xff);
-        }
+        c = buffer[i];
+        if (offs && i == offs) result.append("\033[0m");
+        if (c < 0x20 || c >= 0x7f)
+            result.print("\033[7m<%02x>\033[27m", c & 0xff);
         else
-        {
-            result.append(buffer[i]);
-        }
-        if (i == offs+len-1) result.append("\033[34m]\033[37m");
+            result.append(c);
+        if (i == offs+len-1) result.append("\033[47m");
     }
     result.append("\033[0m");
     return result;

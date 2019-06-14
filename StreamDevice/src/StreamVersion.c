@@ -5,7 +5,7 @@
 * (C) 2005 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
 *                                                              *
 * This provides a version string for StreamDevice.             *
-* Please refer to the HTML files in ../doc/ for a detailed     *
+* Please refer to the HTML files in ../docs/ for a detailed    *
 * documentation.                                               *
 *                                                              *
 * If you do any changes in this file, you are not allowed to   *
@@ -23,6 +23,7 @@
 #define STR2(x) #x
 #define STR(x) STR2(x)
 const char StreamVersion [] =
-    "StreamDevice " STR(STREAM_MAJOR) "." STR(STREAM_MINOR)
+    "StreamDevice " STR(STREAM_MAJOR)
+    "." STR(STREAM_MINOR)
+    "." STR(STREAM_PATCHLEVEL)
     " built " __DATE__ " " __TIME__;
-

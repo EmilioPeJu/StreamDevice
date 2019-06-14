@@ -5,7 +5,7 @@
 * (C) 2010 Dirk Zimoch (dirk.zimoch@psi.ch)                    *
 *                                                              *
 * This is the time stamp converter of StreamDevice.            *
-* Please refer to the HTML files in ../doc/ for a detailed     *
+* Please refer to the HTML files in ../docs/ for a detailed    *
 * documentation.                                               *
 *                                                              *
 * If you do any changes in this file, you are not allowed to   *
@@ -26,10 +26,28 @@
 #include <stdlib.h>
 #include <errno.h>
 
+/* timezone in UNIX contains the seconds between UTC and local time,
+but not in Free-BSD! Here timezone() is a function delivering
+the time zone abbreviation (e.g. CET). Alternatively, the timezone
+value can also be gained from tm_gmtoff of the tm-structure.
+                                                    HJK, 4.4.14 */
+/* The same seems to be true for other BSDs. DZ. */
+
+#if defined(__FreeBSD__) || \
+    defined(__NetBSD__) || \
+    defined(__OpenBSD__) || \
+    defined(__bsdi__ ) || \
+    defined(__DragonFly__)
+static int timezone_bsd=0;
+#define timezone timezone_bsd
+#define tzset() { struct tm tm; time_t timet; tzset(); time(&timet);	\
+                  localtime_r(&timet, &tm); timezone=tm.tm_gmtoff; }
+#endif
+
 #ifdef _WIN32
 #define tzset() _tzset()
 #define timezone _timezone
-#define localtime_r(timet,tm) localtime_s(tm,timet) /* Windows sucks */
+#define localtime_r(timet,tm) localtime_s(tm,timet)
 #endif
 
 #ifdef __rtems__
@@ -46,11 +64,18 @@ int timezone = 0;
 } while (0)
 #endif
 
+#if defined(__MINGW32__)
+/* MinGW has no re-entrant localtime. How about other environments? */
+/* Just let's hope for the best */
+#undef localtime_r
+#define localtime_r(timet,tm) (*(tm)=*localtime(timet))
+#endif
+
 class TimestampConverter : public StreamFormatConverter
 {
     int parse(const StreamFormat&, StreamBuffer&, const char*&, bool);
     bool printDouble(const StreamFormat&, StreamBuffer&, double);
-    int scanDouble(const StreamFormat&, const char*, double&);
+    ssize_t scanDouble(const StreamFormat&, const char*, double&);
 };
 
 int TimestampConverter::
@@ -82,14 +107,14 @@ parse(const StreamFormat&, StreamBuffer& info,
                         if (*c == 'f')
                         {
                             source = c;
-                            info.printf("%%0%uf", n);
+                            info.print("%%0%uf", n);
                             break;
                         }
                     }
                     /* look for nanoseconds %N of %f */
                     if (*source == 'N' || *source == 'f')
                     {
-                        info.printf("%%09f");
+                        info.print("%%09f");
                         break;
                     }
                     /* look for seconds with fractions like %.3S */
@@ -100,7 +125,7 @@ parse(const StreamFormat&, StreamBuffer& info,
                         if (toupper(*c) == 'S')
                         {
                             source = c;
-                            info.printf("%%%c.%%0%uf", *c, n);
+                            info.print("%%%c.%%0%uf", *c, n);
                             break;
                         }
                     }
@@ -126,10 +151,11 @@ printDouble(const StreamFormat& format, StreamBuffer& output, double value)
     struct tm brokenDownTime;
     char buffer [40];
     char fracbuffer [15];
-    int length;
+    size_t length;
     time_t sec;
     double frac;
-    int i, n;
+    ssize_t i;
+    size_t n;
     char* c;
     char* p;
 
@@ -147,7 +173,7 @@ printDouble(const StreamFormat& format, StreamBuffer& output, double value)
         n = strtol(output(i+1), &c, 10);
         if (*c++ != 'f') return false;
         /* print fractional part */
-        sprintf(fracbuffer, "%.*f", n, frac);
+        sprintf(fracbuffer, "%.*f", (int)n, frac);
         p = strchr(fracbuffer, '.')+1;
         output.replace(i, c-output(i), p);
     }
@@ -158,10 +184,10 @@ printDouble(const StreamFormat& format, StreamBuffer& output, double value)
    all fields, e.g. %z.
  */
 
-static int strmatch(const char*& input, const char** strings, int minlen)
+static int strmatch(const char*& input, const char** strings, size_t minlen)
 {
     int i;
-    int c;
+    size_t c;
 
     for (i=0; strings[i]; i++) {
         for (c=0; ; c++)
@@ -366,7 +392,7 @@ startover:
                         debug ("TimestampConverter::scantime: %s hour = %d\n", pm?"PM":"AM", tm->tm_hour);
                         break;
                     case 'M': /* minute */
-                        i = nummatch(input, 1, 59);
+                        i = nummatch(input, 0, 59);
                         if (i < 0)
                         {
                             error ("error parsing minute: '%.20s'\n", input);
@@ -376,7 +402,7 @@ startover:
                         debug ("TimestampConverter::scantime: min = %d\n", tm->tm_min);
                         break;
                     case 'S': /* second */
-                        i = nummatch(input, 1, 60);
+                        i = nummatch(input, 0, 60);
                         if (i < 0)
                         {
                             error ("error parsing week second: '%.20s'\n", input);
@@ -491,9 +517,7 @@ startover:
     return input;
 }
 
-
-
-int TimestampConverter::
+ssize_t TimestampConverter::
 scanDouble(const StreamFormat& format, const char* input, double& value)
 {
     struct tm brokenDownTime;
