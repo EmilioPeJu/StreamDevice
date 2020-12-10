@@ -26,6 +26,7 @@ DIRS = configure
 src_DEPEND_DIRS := $(DIRS)
 include $(TOP)/configure/CONFIG
 
+DIRS += pcre-7_5
 DIRS += src
 DIRS += streamApp
 streamApp_DEPEND_DIRS = src
