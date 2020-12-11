@@ -8,3 +8,6 @@ include
 *.*log
 StreamVersion.h
 *.local
+CMakeLists.txt
+.idea/
+cmake-build-debug/

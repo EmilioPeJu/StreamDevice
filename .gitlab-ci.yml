@@ -1,0 +1,7 @@
+rhel7_job:
+  tags:
+    - rhel7
+  script:
+    - make
+    - cd streamApp/tests/
+    - ./testall

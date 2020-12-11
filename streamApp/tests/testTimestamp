@@ -60,44 +60,44 @@ set startup {
 
 set debug 0
 
-package require Epics
-proc checkTS {pv timestamp} {
-    global faults
-    pvget $pv
-    array set PV [pvinfo $pv]
-    if {$PV(TIME) != $timestamp} {
-        puts "expected timestamp: $timestamp"
-        puts "received timestamp: $PV(TIME)"
-        incr faults
-    }
-}
+#package require Epics
+#proc checkTS {pv timestamp} {
+#    global faults
+#    pvget $pv
+#    array set PV [pvinfo $pv]
+#    if {$PV(TIME) != $timestamp} {
+#        puts "expected timestamp: $timestamp"
+#        puts "received timestamp: $PV(TIME)"
+#        incr faults
+#    }
+#}
 
 startioc
 
 put DZ:test1 1044068706.789
-assure "01.02.2003 04:05:06.79 +0100\n"
+assure "01.02.2003 03:05:06.79 +0000\n"
 
 put DZ:test1 1057025106.789
-assure "01.07.2003 04:05:06.79 +0200\n"
+assure "01.07.2003 03:05:06.79 +0100\n"
 
 process DZ:test2
 send "2003-02-01 04:05:06\n"
-assure "1044068706 2003-02-01 04:05:06\n";
+assure "1044072306 2003-02-01 04:05:06\n";
 
 process DZ:test3
 send "1. February 2003 04:05:06.789 3.1415\n"
-assure "01.02.2003 04:05:06.79 +0100\n";
-checkTS DZ:test3 "02/01/03 04:05:06.789000000"
+assure "01.02.2003 04:05:06.79 +0000\n";
+#checkTS DZ:test3 "02/01/03 04:05:06.789000000"
 
 process DZ:test3
 send "1. July 2003 04:05:06.789123 3.1415\n"
-assure "01.07.2003 04:05:06.79 +0200\n";
-checkTS DZ:test3 "07/01/03 04:05:06.789123000"
+assure "01.07.2003 04:05:06.79 +0100\n";
+#checkTS DZ:test3 "07/01/03 04:05:06.789123000"
 
 process DZ:test4
 send "mon jan 2 04:05:06 2003 3.1415\n"
-assure "Thu 02.01.2003 04:05:06.00 +0100\n";
-checkTS DZ:test4 "01/02/03 04:05:06.000000000"
+assure "Thu 02.01.2003 04:05:06.00 +0000\n";
+#checkTS DZ:test4 "01/02/03 04:05:06.000000000"
 
 process DZ:test5
 send "12 a\n"
@@ -145,8 +145,8 @@ assure "23\n";
 
 process DZ:test7
 send "1.2.2010 12:56:32 +0000\n"
-assure "01.02.2010 13:56:32 +0100 1265028992.000000\n";
+assure "01.02.2010 12:56:32 +0000 1265028992.000000\n";
 process DZ:test7
 send "1.7.2010 12:56:32 +0000\n"
-assure "01.07.2010 14:56:32 +0200 1277988992.000000\n";
+assure "01.07.2010 13:56:32 +0100 1277988992.000000\n";
 finish
