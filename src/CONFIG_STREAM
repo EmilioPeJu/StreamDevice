@@ -51,9 +51,7 @@ endif
 # 'sscan' and/or 'genSub', so you may have to build them first.
 # Up to version 2-6 (synApps 5-1) the 'calc' module needs a fix.
 # See doc/scalcout.html for details.
-ifneq ($(words $(CALC) $(SYNAPPS)), 0)
-RECORDTYPES += scalcout
-endif
+
 
 # You may add more bus interfaces
 # This requires the naming convention

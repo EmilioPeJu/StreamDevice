@@ -1,0 +1,9 @@
+/**
+\mainpage streamDevice EPICS Support Module
+\section intro_sec Introduction 
+StreamDevice is a vendor module from PSI, created by Dirk Zimoch.
+
+\section doc_sec Vendor Documentation
+The <a href=../../StreamDevice/doc/index.html>documentation</a> provided by PSI details how to create modules that use streamDevice for serial comms
+**/
+

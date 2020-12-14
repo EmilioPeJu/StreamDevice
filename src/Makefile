@@ -31,9 +31,6 @@ LIBRARY_DEFAULT = stream
 
 DBD += $(LIBRARY_DEFAULT).dbd
 DBD += $(LIBRARY_DEFAULT)-base.dbd
-ifdef CALC
-DBD += $(LIBRARY_DEFAULT)-scalcout.dbd
-endif
 
 ifdef ASYN
 LIB_LIBS += asyn
