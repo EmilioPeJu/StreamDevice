@@ -90,33 +90,33 @@ class ProtocolFile(Device):
         # needs to be copied or if we are trying to use more than one
         # protocol directory then copying is needed.  (We could specify a
         # protocol path instead, but this isn't implemented yet.)
-        print '# Configure StreamDevice paths'
+        print('# Configure StreamDevice paths')
         Call_TargetOS(self, 'ProtocolPath')
 
     def ProtocolPath_linux(self):
         protocol_dirs = ['$(%s)/data' % x for x in self.__Modules]
         if self.__CopiedFiles:
             protocol_dirs.insert(0, IocDataFile.GetDataPath())
-        print 'epicsEnvSet "STREAM_PROTOCOL_PATH", "%s"' % \
-            ':'.join(protocol_dirs)
+        print('epicsEnvSet "STREAM_PROTOCOL_PATH", "%s"' % \
+            ':'.join(protocol_dirs))
 
     def ProtocolPath_vxWorks(self):
-        print 'STREAM_PROTOCOL_PATH = calloc(1, %d)' % \
-            (IocWriter.IOCmaxLineLength_vxWorks * (1 + len(self.__Modules)))
+        print('STREAM_PROTOCOL_PATH = calloc(1, %d)' % \
+            (IocWriter.IOCmaxLineLength_vxWorks * (1 + len(self.__Modules))))
         sep = False
         if self.__CopiedFiles:
-            print 'strcat(STREAM_PROTOCOL_PATH,%s)' % \
-                quote_IOC_string(IocDataFile.GetDataPath())
+            print('strcat(STREAM_PROTOCOL_PATH,%s)' % \
+                quote_IOC_string(IocDataFile.GetDataPath()))
             sep = bool(self.__Modules)
         for module in self.__Modules:
             if sep:
-                print 'strcat(STREAM_PROTOCOL_PATH,":")'
+                print('strcat(STREAM_PROTOCOL_PATH,":")')
             if iocInit.substitute_boot:
-                print 'strcat(STREAM_PROTOCOL_PATH,"$(%s)/data")' % module
+                print('strcat(STREAM_PROTOCOL_PATH,"$(%s)/data")' % module)
             else:
-                print 'strcat(STREAM_PROTOCOL_PATH,getenv(%s))' % \
-                    quote_IOC_string(module)
-                print 'strcat(STREAM_PROTOCOL_PATH,"/data")'
+                print('strcat(STREAM_PROTOCOL_PATH,getenv(%s))' % \
+                    quote_IOC_string(module))
+                print('strcat(STREAM_PROTOCOL_PATH,"/data")')
             sep = True
 
     def __str__(self):
